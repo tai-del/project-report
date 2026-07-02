@@ -1,0 +1,2319 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#1F4E79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>פיקוח בנייה – תמ"א 38</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--blue:#1F4E79;--blue2:#2E75B6;--blue-lt:#D6E4F0;--blue-vlt:#EBF3FB;--green:#27ae60;--orange:#E26B0A;--red:#C00000;--radius:10px;--shadow:0 2px 8px rgba(0,0,0,.12)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",Arial,sans-serif;background:#ECF3FA;color:#1a1a1a;direction:rtl;min-height:100vh;padding-bottom:80px}
+/* TOP BAR */
+.topbar{background:var(--blue);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topbar-title{font-size:14px;font-weight:700;flex:1}
+.topbar-btn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:7px;padding:7px 10px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.topbar-btn:active{background:rgba(255,255,255,.3)}
+.admin-active-badge{background:#e74c3c;color:#fff;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;display:none}
+/* PROJECTS */
+.projects-bar{background:#fff;padding:10px 12px;border-bottom:1px solid #dde6ef;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.proj-pill{background:var(--blue-vlt);border:1.5px solid var(--blue-lt);border-radius:20px;padding:7px 14px;font-size:12.5px;color:var(--blue);cursor:pointer;font-family:inherit;font-weight:600;transition:.15s}
+.proj-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.proj-pill:active{opacity:.8}
+.proj-manage-btn{background:none;border:1.5px dashed #aac;border-radius:20px;padding:7px 12px;font-size:12px;color:#668;cursor:pointer;font-family:inherit}
+/* SECTIONS */
+.section{background:#fff;border-radius:var(--radius);margin:10px;box-shadow:var(--shadow);overflow:hidden}
+.sec-hdr{width:100%;text-align:right;background:var(--blue);color:#fff;padding:12px 16px;font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px;cursor:pointer;border:none;font-family:inherit}
+.sec-hdr .chev{margin-right:auto;font-size:11px;opacity:.7;transition:transform .25s}
+.sec-hdr.closed .chev{transform:rotate(-90deg)}
+.sec-body{padding:13px}
+.sec-body.hidden{display:none}
+/* FIELD */
+.field-lbl{font-size:11.5px;font-weight:700;color:#445;margin-bottom:5px;display:block}
+.field-lbl .req{color:var(--red)}
+.field-group{margin-bottom:13px}
+input[type=text],input[type=date],input[type=time],input[type=month],input[type=week],input[type=number],textarea,select{width:100%;border:1.5px solid #C8D8E8;border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;direction:rtl;background:#fff;color:#1a1a1a;outline:none;transition:.15s}
+input:focus,textarea:focus,select:focus{border-color:var(--blue2);box-shadow:0 0 0 3px rgba(46,117,182,.15)}
+textarea{resize:vertical;min-height:70px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* STATUS BUTTONS */
+.sbtn-group{display:flex;flex-wrap:wrap;gap:6px}
+.sbtn{background:#f0f4f8;border:1.5px solid #C8D8E8;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;color:#445;font-weight:600;transition:.15s;white-space:nowrap}
+.sbtn:active{opacity:.75}
+.sbtn.done{background:#E8F5E9;border-color:#81c784;color:#2e7d32}
+.sbtn.prog{background:#FFF3E0;border-color:#ffb74d;color:#e65100}
+.sbtn.notyet{background:#E3F2FD;border-color:#64b5f6;color:#1565c0}
+.sbtn.na{background:#F5F5F5;border-color:#bbb;color:#777}
+.sbtn.finished{background:#EDE7F6;border-color:#9575CD;color:#4527A0;font-weight:700}
+.sbtn.sel-ahead{background:#E8F5E9;border-color:#81c784;color:#2e7d32}
+.sbtn.sel-ontrack{background:#FFF9E6;border-color:#FFD54F;color:#795800}
+.sbtn.sel-behind{background:#FFE8E8;border-color:#ef9a9a;color:#b71c1c}
+/* STAGE CATEGORIES */
+.cat-wrap{border:1.5px solid var(--blue-lt);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.cat-hdr{background:var(--blue-vlt);padding:10px 13px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;color:var(--blue)}
+.cat-stat{font-size:10.5px;background:rgba(31,78,121,.12);padding:2px 8px;border-radius:10px;font-weight:700;margin-right:auto}
+.cat-stat.full{background:rgba(39,174,96,.2);color:#1a5f2a}
+.cat-stat.part{background:rgba(226,107,10,.2);color:#7a3800}
+.cat-unlock-btn{font-size:11px;background:#fff;border:1.5px solid #aac;color:#445;padding:4px 10px;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:600}
+.cat-body{padding:8px}
+.cat-locked .cat-body{display:none}
+.lock-banner{background:linear-gradient(90deg,#f0f4f8,#e8eef5);border-top:1px solid #d0dce8;padding:9px 13px;font-size:11.5px;color:#557;display:flex;align-items:center;gap:8px}
+.lock-banner:not([style*="display"]){display:none}
+/* STAGE ROW */
+.stage-row{border-bottom:1px solid #eef2f6;padding:10px 0}
+.stage-row:last-child{border-bottom:none}
+.stage-row-top{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.stage-name{font-size:12.5px;font-weight:600;flex:1;color:#223}
+.stage-del-btn{background:none;border:none;color:#bbb;font-size:15px;cursor:pointer;padding:0 4px;line-height:1}
+.stage-note{width:100%;border:1px solid #dde;border-radius:6px;padding:6px 9px;font-size:11.5px;font-family:inherit;margin-top:6px;color:#445;background:#fafbfc}
+.stage-note:focus{border-color:var(--blue-lt);outline:none}
+.stage-photos{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center}
+.thumb-wrap{position:relative;display:inline-block}
+.thumb-wrap img{width:60px;height:60px;object-fit:cover;border-radius:6px;border:1.5px solid #cdd}
+.thumb-del{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;border:none;border-radius:50%;width:17px;height:17px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.upload-dot{position:absolute;bottom:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#f39c12}
+.upload-dot.ok{background:var(--green)}
+.cam-btn{background:var(--blue-vlt);border:1.5px solid var(--blue-lt);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:var(--blue);font-family:inherit}
+.add-stage-btn{background:none;border:1.5px dashed #aac;border-radius:7px;padding:5px 12px;font-size:11.5px;color:#668;cursor:pointer;margin-top:4px;font-family:inherit;width:100%;text-align:center}
+/* ISSUES */
+.issue-card{background:#fafbfd;border:1.5px solid #dde6ef;border-radius:9px;padding:11px;margin-bottom:10px}
+.issue-card.sev-high{border-right:4px solid var(--red);background:#FFF8F8}
+.issue-card.sev-med{border-right:4px solid var(--orange)}
+.issue-card.sev-low{border-right:4px solid var(--green)}
+.issue-del-btn{background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;float:left}
+/* PLAN */
+.plan-cat{margin-bottom:10px}
+.plan-cat-title{font-size:11.5px;font-weight:700;color:var(--blue);margin-bottom:5px;padding:4px 0;border-bottom:1px solid var(--blue-lt)}
+.plan-opt{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f0f0f0}
+.plan-opt:last-child{border-bottom:none}
+.plan-opt input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue);flex-shrink:0}
+.plan-opt-name{flex:1;font-size:12.5px;border:none;background:transparent;font-family:inherit;color:#334;padding:0}
+.plan-opt-name:focus{outline:none}
+/* BOTTOM BAR */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--blue);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;z-index:90;box-shadow:0 -2px 10px rgba(0,0,0,.2)}
+.progress-pct{font-size:12px;font-weight:700;background:rgba(255,255,255,.18);padding:5px 10px;border-radius:8px;white-space:nowrap;min-width:70px;text-align:center}
+.bar-btn{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap}
+.bar-btn:active{background:rgba(255,255,255,.3)}
+.bar-btn.primary{background:rgba(255,255,255,.28)}
+/* MODALS */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center;padding:0}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:20px 18px 30px}
+.modal-title{font-size:15pt;font-weight:700;color:var(--blue);margin-bottom:14px}
+.modal-close{width:100%;margin-top:12px;padding:12px;background:#f0f4f8;border:none;border-radius:9px;font-size:13px;cursor:pointer;font-family:inherit;color:#445;font-weight:600}
+/* REPORT TYPE BUTTONS */
+.rtype-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.rtype-btn{background:#f0f4f8;border:1.5px solid #C8D8E8;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;color:#445;font-weight:600}
+.rtype-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* ARCHIVE */
+.arc-card{background:#fafbfd;border:1.5px solid #dde6ef;border-radius:9px;padding:11px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px}
+.arc-info{flex:1}
+.arc-proj{font-weight:700;font-size:13px;color:var(--blue)}
+.arc-date{font-size:11px;color:#668;margin-top:2px}
+.arc-pct{font-size:11px;color:#445;margin-top:3px}
+.arc-del{background:none;border:none;color:#ccc;font-size:17px;cursor:pointer;padding:0;line-height:1}
+/* SMART AI */
+.smart-box{position:relative}
+.smart-box textarea{min-height:80px;border-color:var(--blue-lt);background:var(--blue-vlt)}
+.smart-parse-btn{position:absolute;bottom:8px;left:8px;background:var(--blue);color:#fff;border:none;border-radius:7px;padding:7px 13px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600}
+/* PLAN LOCK BANNER */
+.plan-lock{background:#f0f4f8;border-top:1px solid #d0dce8;padding:9px 13px;font-size:11.5px;color:#557;display:flex;align-items:center;gap:8px}
+/* TOAST */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a2e;color:#fff;padding:9px 20px;border-radius:22px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* MISC */
+.divider{height:1px;background:#eef2f6;margin:13px 0}
+.req-badge{display:inline-block;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;margin-right:4px}
+.visits-summary{font-size:11.5px;color:#668;margin-bottom:10px;min-height:18px}
+.add-btn{width:100%;padding:10px;background:var(--blue-vlt);border:1.5px dashed var(--blue-lt);border-radius:9px;color:var(--blue);font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;margin-top:5px}
+.gen-btn{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:8px}
+.gen-btn.secondary{background:var(--blue2)}
+.pin-input{width:100%;border:2px solid var(--blue-lt);border-radius:9px;padding:12px;font-size:22px;text-align:center;letter-spacing:8px;font-family:monospace;margin-bottom:10px}
+.admin-opt-btn{width:100%;padding:11px;background:#f0f4f8;border:1.5px solid #d0dce8;border-radius:9px;font-size:13px;cursor:pointer;font-family:inherit;color:#334;font-weight:600;margin-bottom:7px;text-align:right}
+.admin-opt-btn.danger{background:#FFF0F0;border-color:#f5c6c6;color:var(--red)}
+.share-btn{width:100%;padding:12px;border:none;border-radius:9px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.share-btn.wa{background:#25D366;color:#fff}
+.share-btn.mail{background:#EA4335;color:#fff}
+.share-btn.copy{background:#607D8B;color:#fff}
+.share-btn.html{background:#9C27B0;color:#fff}
+.share-section-title{font-size:10.5px;font-weight:700;color:#778;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px}
+.dbx-badge{background:rgba(255,255,255,.2);border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;display:none}
+.gen-photo-item{background:#F8FAFD;border:1px solid #cce;border-radius:8px;padding:8px;display:flex;gap:8px;align-items:flex-start;margin-bottom:6px}
+.gen-photo-item img{width:90px;height:70px;object-fit:cover;border-radius:5px;border:1px solid #ccc;flex-shrink:0}
+.gen-photo-info{flex:1;display:flex;flex-direction:column;gap:4px}
+.gen-photo-desc{width:100%;border:1px solid #ccd;border-radius:5px;padding:5px 7px;font-size:11.5px;font-family:inherit;direction:rtl;resize:vertical;min-height:44px}
+.learn-status{font-size:12px;color:var(--blue);padding:4px 0;direction:rtl;min-height:18px}
+@media print{body{padding-bottom:0}.bottom-bar,.topbar,.projects-bar{display:none}.section{box-shadow:none;margin:4px 0}}
+/* AUTH GATE */
+#authGate{position:fixed;inset:0;background:linear-gradient(160deg,#1F4E79,#2E75B6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
+#authGate.hidden{display:none}
+.auth-card{background:#fff;border-radius:16px;padding:28px 22px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center}
+.auth-card h1{font-size:16pt;color:var(--blue);margin-bottom:6px}
+.auth-card p{font-size:12px;color:#668;margin-bottom:18px}
+.auth-card input{margin-bottom:12px}
+.auth-status{font-size:12px;color:var(--blue);min-height:18px;margin-top:8px}
+.sync-badge{background:rgba(255,255,255,.18);border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;white-space:nowrap}
+.sync-badge.err{background:rgba(192,0,0,.5)}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="authGate">
+  <div class="auth-card">
+    <h1>🏗️ פיקוח בנייה – תמ"א 38</h1>
+    <p>התחברות באמצעות קישור למייל</p>
+    <div id="authEmailStep">
+      <input type="text" id="authEmail" placeholder="האימייל שלך" inputmode="email" autocomplete="email">
+      <button class="gen-btn" style="margin:0" onclick="sendMagicLink()">📧 שלח קישור כניסה</button>
+    </div>
+    <div id="authSentStep" style="display:none">
+      <p style="color:var(--green);font-weight:700">✓ קישור נשלח! בדוק את המייל שלך</p>
+    </div>
+    <div class="auth-status" id="authStatus"></div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <span class="topbar-title">🏗️ פיקוח בנייה – תמ"א 38</span>
+  <span class="admin-active-badge" id="adminBadge">🔐 אדמין</span>
+  <span class="sync-badge" id="syncBadge">☁️ מסונכרן</span>
+  <button class="topbar-btn" id="userBadge" onclick="doSignOut()" title="התנתק">👤</button>
+  <button class="topbar-btn" onclick="openModal('adminModal')">🔐</button>
+</div>
+
+<!-- PROJECTS BAR -->
+<div class="projects-bar" id="projectsBar">
+  <button class="proj-manage-btn" onclick="openModal('projectsModal')">⚙️ פרויקטים</button>
+</div>
+
+<!-- SMART AI -->
+<div class="section">
+  <button class="sec-hdr closed" onclick="toggleSec(this)">
+    <span>🤖 מילוי חכם – AI</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body hidden">
+    <p style="font-size:11.5px;color:#557;margin-bottom:8px">כתוב בשפה חופשית מה קורה באתר – הבינה המלאכותית תמלא את שלבי הבנייה אוטומטית.</p>
+    <div class="smart-box">
+      <textarea id="smartText" placeholder="לדוגמה: סיימנו את יציקת היסודות, בביצוע עמודי קומה א׳, טרם החלו עבודות טיח..."></textarea>
+      <button class="smart-parse-btn" onclick="parseSmartText()">⚡ מלא</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT BRIEF -->
+<div class="section">
+  <button class="sec-hdr closed" onclick="toggleSec(this)">
+    <span>📖 תיאור הפרויקט</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body hidden">
+    <p style="font-size:11.5px;color:#557;margin-bottom:8px">תאר את תכולת הפרויקט – הבינה המלאכותית תוסיף שלבי ביצוע מותאמים לפרויקט זה.</p>
+    <div class="field-group">
+      <label class="field-lbl">תיאור הפרויקט</label>
+      <textarea id="projectBriefText" rows="4" style="min-height:80px" placeholder="לדוגמה: בניין מגורים 8 קומות עם בריכת שחייה על הגג, מחסנים בקומת הכניסה, 2 חניות תת-קרקעיות לדירה, לובי מעוצב וחדר כושר..."></textarea>
+    </div>
+    <button class="gen-btn" onclick="learnFromProject()" style="margin:4px 0 8px">⚡ למד מהפרויקט והוסף שלבים</button>
+    <div class="learn-status" id="learnStatus"></div>
+  </div>
+</div>
+
+<!-- VISIT INFO -->
+<div class="section">
+  <button class="sec-hdr" onclick="toggleSec(this)">
+    <span>📋 פרטי ביקור</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body">
+    <div class="row2">
+      <div class="field-group">
+        <label class="field-lbl">תאריך ביקור <span class="req">*</span></label>
+        <input type="date" id="visitDate" oninput="state.visitDate=this.value;autoSave()">
+      </div>
+      <div class="field-group">
+        <label class="field-lbl">שעת הגעה</label>
+        <input type="time" id="visitTime" oninput="state.visitTime=this.value;autoSave()">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field-group">
+        <label class="field-lbl">שם המפקח</label>
+        <input type="text" id="supervisorName" placeholder="שמך" oninput="state.supervisorName=this.value;autoSave()">
+      </div>
+      <div class="field-group">
+        <label class="field-lbl">מנהל עבודה</label>
+        <input type="text" id="siteManager" placeholder="שם מנהל העבודה" oninput="state.siteManager=this.value;autoSave()">
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-lbl">סוג פרויקט</label>
+      <div class="sbtn-group" id="projTypeBtns">
+        <button class="sbtn" onclick="setProjectType(this,'חיזוק')">חיזוק</button>
+        <button class="sbtn" onclick="setProjectType(this,'חיזוק+תוספת')">חיזוק + תוספת</button>
+        <button class="sbtn" onclick="setProjectType(this,'הריסה ובנייה')">הריסה ובנייה</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STAGES -->
+<div class="section">
+  <button class="sec-hdr" onclick="toggleSec(this)">
+    <span>🏛️ שלבי הבנייה</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body" id="stagesBody" style="padding:8px"></div>
+</div>
+
+<!-- WORK PLAN -->
+<div class="section" id="planSection">
+  <button class="sec-hdr closed" id="planHdr" onclick="togglePlan()">
+    <span>📋 תכנית עבודה</span><span class="chev">▼</span>
+  </button>
+  <div class="plan-lock" id="planLock">
+    🔒 יפתח לאחר סימון שלב ראשון כ"בוצע"
+    <button class="cat-unlock-btn" onclick="manualUnlockPlan()">🔓 פתח ידנית</button>
+  </div>
+  <div class="sec-body hidden" id="planBody">
+    <div class="field-group">
+      <label class="field-lbl">⚡ התקדמות כללית</label>
+      <div class="sbtn-group">
+        <button class="sbtn" onclick="setOverallProg(this,'ahead')">לפני לו"ז 🟢</button>
+        <button class="sbtn" onclick="setOverallProg(this,'ontrack')">בלו"ז 🟡</button>
+        <button class="sbtn" onclick="setOverallProg(this,'behind')">מאחורי לו"ז 🔴</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group"><label class="field-lbl">תכנית לשבוע הקרוב</label></div>
+    <div id="planWeek1Container"></div>
+    <div class="field-group" style="margin-top:6px">
+      <label class="field-lbl">אחר</label>
+      <textarea id="planWeek1Other" placeholder="פרט נוסף..." oninput="state.planWeek1Other=this.value;autoSave()" rows="2"></textarea>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group"><label class="field-lbl">תכנית לשבוע שאחריו</label></div>
+    <div id="planWeek2Container"></div>
+    <div class="field-group" style="margin-top:6px">
+      <label class="field-lbl">אחר</label>
+      <textarea id="planWeek2Other" placeholder="פרט נוסף..." oninput="state.planWeek2Other=this.value;autoSave()" rows="2"></textarea>
+    </div>
+    <div class="divider"></div>
+    <div class="field-group">
+      <label class="field-lbl">תאריך ביקור הבא</label>
+      <input type="date" id="nextVisitDate" oninput="state.nextVisitDate=this.value;autoSave()">
+    </div>
+  </div>
+</div>
+
+<!-- ISSUES -->
+<div class="section">
+  <button class="sec-hdr" onclick="toggleSec(this)">
+    <span>⚠️ ממצאים וליקויים</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body">
+    <div id="issuesList"></div>
+    <button class="add-btn" onclick="addIssue()">+ הוסף ממצא</button>
+  </div>
+</div>
+
+<!-- GENERAL PHOTOS -->
+<div class="section">
+  <button class="sec-hdr closed" onclick="toggleSec(this)">
+    <span>📷 תמונות כלליות</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body hidden">
+    <div class="field-group">
+      <label class="field-lbl">תמונות כלליות</label>
+      <div id="generalPhotosStrip">
+        <div id="genPhotosArea"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="cam-btn" onclick="triggerCam('general',false)">📷 צלם</button>
+          <button class="cam-btn" onclick="triggerCam('general',true)">🖼️ גלריה</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GENERAL NOTES -->
+<div class="section">
+  <button class="sec-hdr closed" onclick="toggleSec(this)">
+    <span>📝 הערות כלליות</span><span class="chev">▼</span>
+  </button>
+  <div class="sec-body hidden">
+    <textarea id="generalNotes" placeholder="הערות חופשיות על הביקור..." oninput="state.generalNotes=this.value;autoSave()" rows="5"></textarea>
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar">
+  <div class="progress-pct" id="progressPct">—</div>
+  <button class="bar-btn" onclick="openModal('archiveModal')">📁 ארכיון</button>
+  <button class="bar-btn primary" onclick="openModal('reportModal')">📊 דוח</button>
+  <button class="bar-btn" onclick="openModal('shareModal')">📤 שתף</button>
+  <button class="bar-btn primary" onclick="archiveVisit()" style="background:rgba(39,174,96,.5)">💾 שמור</button>
+</div>
+
+<!-- CAMERA INPUTS -->
+<input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="onCamFile(this)">
+<input type="file" id="galInput" accept="image/*" style="display:none" onchange="onCamFile(this)">
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Projects Modal -->
+<div class="modal-bg" id="projectsModal">
+  <div class="modal">
+    <div class="modal-title">⚙️ ניהול פרויקטים</div>
+    <div id="projModalList" style="margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="newProjInput" placeholder="שם פרויקט חדש..." style="flex:1">
+      <button onclick="addProject()" style="padding:10px 16px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:inherit;cursor:pointer;font-weight:700">הוסף</button>
+    </div>
+    <button class="modal-close" onclick="closeModal('projectsModal')">סגור</button>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-bg" id="reportModal">
+  <div class="modal">
+    <div class="modal-title">📊 יצירת דוח</div>
+    <button class="gen-btn" onclick="generateCurrentVisitReport()">📋 דוח ביקור נוכחי</button>
+    <div style="display:flex;align-items:center;gap:8px;margin:8px 0 12px;color:#aaa;font-size:11px">
+      <div style="flex:1;height:1px;background:#ddd"></div><span>דוח היסטורי מארכיון</span><div style="flex:1;height:1px;background:#ddd"></div>
+    </div>
+    <div class="rtype-row">
+      <button class="rtype-btn active" onclick="setRtype('month',this)">📅 חודשי</button>
+      <button class="rtype-btn" onclick="setRtype('week',this)">📆 שבועי</button>
+      <button class="rtype-btn" onclick="setRtype('year',this)">🗓️ שנתי</button>
+      <button class="rtype-btn" onclick="setRtype('all',this)">📁 כל הפרויקט</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <label class="field-lbl">פרויקט</label>
+        <select id="rptProject" onchange="updateRptSummary()"><option value="">כל הפרויקטים</option></select>
+      </div>
+      <div id="rptDateWrap">
+        <label class="field-lbl" id="rptDateLbl">חודש</label>
+        <input type="month" id="rptMonth" onchange="updateRptSummary()">
+        <input type="week" id="rptWeek" style="display:none" onchange="updateRptSummary()">
+        <input type="number" id="rptYear" style="display:none" min="2020" max="2035" onchange="updateRptSummary()">
+      </div>
+    </div>
+    <div class="visits-summary" id="rptSummary"></div>
+    <button class="gen-btn secondary" onclick="generateHistoricalReport()">📄 צור דוח</button>
+    <button class="modal-close" onclick="closeModal('reportModal')">סגור</button>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-bg" id="shareModal">
+  <div class="modal">
+    <div class="modal-title">📤 שיתוף</div>
+    <div class="share-section-title">שלח דוח</div>
+    <button class="share-btn wa" onclick="shareWA()"><span>💬</span><span>WhatsApp</span></button>
+    <button class="share-btn mail" onclick="shareMail()"><span>📧</span><span>אימייל</span></button>
+    <button class="share-btn copy" onclick="shareCopy()"><span>📋</span><span>העתק טקסט</span></button>
+    <button class="share-btn html" onclick="shareHtmlFile()"><span>📄</span><span>הורד דוח HTML</span></button>
+    <div class="share-section-title">שיתוף עם עמיתים</div>
+    <button class="share-btn" onclick="exportVisitJSON()" style="background:#1F4E79;color:#fff"><span>📤</span><span>ייצא ביקור (JSON)</span></button>
+    <button class="share-btn" onclick="importVisitJSON()" style="background:#375623;color:#fff"><span>📥</span><span>ייבא ביקור עמית</span></button>
+    <button class="share-btn" onclick="distributeApp()" style="background:#6a1b9a;color:#fff"><span>📱</span><span>הפץ אפליקציה לעמית</span></button>
+    <button class="modal-close" onclick="closeModal('shareModal')">סגור</button>
+  </div>
+</div>
+
+<!-- Admin Modal -->
+<div class="modal-bg" id="adminModal">
+  <div class="modal">
+    <div class="modal-title">🔐 מצב אדמין</div>
+    <div id="adminLoginDiv">
+      <label class="field-lbl">הכנס PIN</label>
+      <input class="pin-input" type="password" id="pinInput" placeholder="••••" maxlength="6" inputmode="numeric" onkeypress="if(event.key==='Enter')doAdminLogin()">
+      <p style="font-size:11px;color:#999;text-align:center;margin-bottom:10px">ברירת מחדל: 1234</p>
+      <button class="gen-btn" onclick="doAdminLogin()">כניסה</button>
+    </div>
+    <div id="adminActiveDiv" style="display:none">
+      <div style="background:#FFF3CD;border:1px solid #ffc107;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12px;color:#7B5A00">🔐 מצב אדמין פעיל – כל השלבים פתוחים</div>
+      <button class="admin-opt-btn" onclick="toggleLockOverride()" id="lockOverrideBtn">🔓 השבת נעילת שלבים (כרגע: פעיל)</button>
+      <div style="display:flex;gap:8px;margin-bottom:7px">
+        <input type="password" id="newPinInput" placeholder="PIN חדש (4 ספרות+)" style="flex:1;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;text-align:center;letter-spacing:4px;font-family:monospace">
+        <button onclick="changePIN()" style="padding:9px 14px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:inherit;cursor:pointer;font-weight:700;white-space:nowrap">שנה PIN</button>
+      </div>
+      <button class="admin-opt-btn" onclick="exportBackup()">💾 גבה את כל הנתונים</button>
+      <button class="admin-opt-btn" onclick="importBackup()">📂 שחזר גיבוי</button>
+      <button class="admin-opt-btn danger" onclick="resetAllData()">🗑️ מחק את כל הנתונים</button>
+      <button class="admin-opt-btn danger" onclick="exitAdmin();closeModal('adminModal')">🔒 צא ממצב אדמין</button>
+    </div>
+    <button class="modal-close" onclick="closeModal('adminModal')">סגור</button>
+  </div>
+</div>
+
+<!-- Archive Modal -->
+<div class="modal-bg" id="archiveModal">
+  <div class="modal">
+    <div class="modal-title">📁 ארכיון ביקורים</div>
+    <div id="archiveList"></div>
+    <button class="modal-close" onclick="closeModal('archiveModal')">סגור</button>
+  </div>
+</div>
+
+<!-- Inline Report Modal (popup blocked fallback) -->
+<div class="modal-bg" id="inlineReportModal">
+  <div class="modal" style="height:85vh;display:flex;flex-direction:column;padding:12px">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13pt;color:var(--blue);flex:1">דוח</div>
+      <button onclick="document.getElementById('inlineFrame').contentWindow?.print()" style="padding:8px 14px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">🖨️ הדפס</button>
+      <button onclick="closeModal('inlineReportModal')" style="padding:8px 14px;background:#f0f4f8;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">סגור</button>
+    </div>
+    <iframe id="inlineFrame" style="flex:1;border:1px solid #ddd;border-radius:8px;width:100%"></iframe>
+  </div>
+</div>
+<script>
+// ═══════════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════════════════
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null; // {id, email}
+
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const DEFAULT_CATS = [
+  { name:'טרום חפירה וקדם עבודה', stages:['בדיקות קרקע וסקרים','פינוי שטח ומחסומי בטיחות','חפירה ועבודות עפר','תכנון ותיאום קבלנים'] },
+  { name:'שלד הבניין', stages:['יציקת יסודות ורצפות','עמודים וקורות קומה א׳','לוחות רצפה קומות עליונות','גרמי מדרגות','מסגרת גג ויציקת גג'] },
+  { name:'טרום טיח – תשתיות', stages:['אינסטלציה – צנרת מים וביוב','חשמל – צנרת ותיל','מיזוג אוויר – צנרת','צנרת גז','תקשורת ורשת'] },
+  { name:'טיח ואיטום', stages:['טיח פנים קירות','טיח חוץ','איטום גגות ומרפסות','איטום קומות תת-קרקעיות'] },
+  { name:'גמרים – מעטפת', stages:['חיפוי חוץ (אבן/לוחות)','חלונות ופרופילים','דלתות כניסה ושערים','מעקות ומחיצות זכוכית'] },
+  { name:'גמרים – פנים דירה', stages:['ריצוף ואריחי קיר','נגרות ואלמנטים פנים','צביעה פנים','מטבח ואביזרים','שירותים ואמבטיה'] },
+  { name:'מערכות בניין', stages:['מעלית','גנרטור ולוח חשמל ראשי','אינטרקום ואבטחה','מערכת כיבוי אש','מעטפת אנרגיה'] },
+  { name:'עבודות חוץ ופיתוח', stages:['שביל כניסה ואספלט','גינון ועיצוב נוף','חניה ותחומי חנייה','גדר ושער כניסה'] }
+];
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let state = {
+  project:'', visitDate:'', visitTime:'',
+  supervisorName:'', siteManager:'', projectType:'',
+  stages:{}, stageNotes:{}, issues:[],
+  stagePhotoLinks:{}, issuePhotoLinks:{}, // {stageName/issueId: [{id,url}]} — uploaded to Supabase Storage
+  planWeek1:[], planWeek1Other:'',
+  planWeek2:[], planWeek2Other:'',
+  nextVisitDate:'', overallProgress:'',
+  generalNotes:'',
+  generalPhotos:[] // [{id,url,desc}]
+};
+
+let settings = { projects:[], stageCategories:DEFAULT_CATS, apiKey:'', projectCustomStages:{}, projectDescriptions:{} };
+let visitHistory = [];
+let projectDrafts = {};
+let projectLastStates = {};
+let projectIdByName = {};
+
+// Admin
+let isAdmin = false;
+let lockOverride = false;
+let planManualUnlock = false;
+let _teamPin = '1234';
+
+// Photo routing
+let _camTarget = null; // {type:'stage'|'issue'|'general', key}
+
+// ═══════════════════════════════════════════════════════════
+// PERSISTENCE (Supabase = source of truth; localStorage = offline cache)
+// ═══════════════════════════════════════════════════════════
+function setSyncStatus(status) {
+  const el = document.getElementById('syncBadge');
+  if (!el) return;
+  el.classList.toggle('err', status === 'error');
+  el.textContent = status === 'syncing' ? '⏳ מסנכרן...' : status === 'error' ? '⚠️ שגיאת סנכרון' : '☁️ מסונכרן';
+}
+
+function draftRowToState(row) {
+  return {
+    visitDate: row.visit_date || '', visitTime: row.visit_time || '',
+    supervisorName: row.supervisor_name || '', siteManager: row.site_manager || '',
+    projectType: row.project_type || '',
+    stages: row.stages || {}, stageNotes: row.stage_notes || {},
+    _hiddenStages: row.hidden_stages || {},
+    issues: row.issues || [],
+    planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '',
+    planWeek2: row.plan_week2 || [], planWeek2Other: row.plan_week2_other || '',
+    nextVisitDate: row.next_visit_date || '', overallProgress: row.overall_progress || '',
+    generalNotes: row.general_notes || ''
+  };
+}
+
+function stateToDraftRow(projectId, s) {
+  return {
+    project_id: projectId,
+    visit_date: s.visitDate || null, visit_time: s.visitTime || '',
+    supervisor_name: s.supervisorName || '', site_manager: s.siteManager || '',
+    project_type: s.projectType || '',
+    stages: s.stages || {}, stage_notes: s.stageNotes || {},
+    hidden_stages: s._hiddenStages || {},
+    issues: s.issues || [],
+    plan_week1: s.planWeek1 || [], plan_week1_other: s.planWeek1Other || '',
+    plan_week2: s.planWeek2 || [], plan_week2_other: s.planWeek2Other || '',
+    next_visit_date: s.nextVisitDate || null, overall_progress: s.overallProgress || '',
+    general_notes: s.generalNotes || '',
+    updated_by: currentUser?.id || null, updated_at: new Date().toISOString()
+  };
+}
+
+function photoPublicUrl(path) {
+  return sb.storage.from('photos').getPublicUrl(path).data.publicUrl;
+}
+
+async function pullSettings() {
+  const { data } = await sb.from('app_settings').select('*').eq('id', 1).maybeSingle();
+  if (data) {
+    settings.stageCategories = (data.stage_categories && data.stage_categories.length) ? data.stage_categories : DEFAULT_CATS;
+    settings.apiKey = data.api_key || '';
+    _teamPin = data.pin || '1234';
+  }
+}
+
+async function pullProjects() {
+  const { data } = await sb.from('projects').select('*').order('created_at');
+  settings.projects = []; projectIdByName = {};
+  settings.projectCustomStages = {}; settings.projectDescriptions = {};
+  (data || []).forEach(p => {
+    settings.projects.push(p.name);
+    projectIdByName[p.name] = p.id;
+    settings.projectCustomStages[p.name] = p.custom_stages || [];
+    settings.projectDescriptions[p.name] = p.description || '';
+  });
+}
+
+async function pullDraftsAndVisits() {
+  const [{ data: draftRows }, { data: visitRows }, { data: photoRows }] = await Promise.all([
+    sb.from('drafts').select('*'),
+    sb.from('visits').select('*').order('created_at', { ascending: false }),
+    sb.from('visit_photos').select('*')
+  ]);
+  const idToName = Object.fromEntries(Object.entries(projectIdByName).map(([n, id]) => [id, n]));
+
+  // group photos by their draft (project_id, no visit yet) or archived visit id
+  const photosByBucket = {};
+  (photoRows || []).forEach(ph => {
+    const bucket = ph.visit_id || ('draft:' + ph.project_id);
+    if (!photosByBucket[bucket]) photosByBucket[bucket] = { stage: {}, issue: {}, general: [] };
+    const url = photoPublicUrl(ph.storage_path);
+    const entry = { id: ph.id, url, desc: ph.description || '', path: ph.storage_path };
+    if (ph.kind === 'stage') { (photosByBucket[bucket].stage[ph.ref_key] ||= []).push(entry); }
+    else if (ph.kind === 'issue') { (photosByBucket[bucket].issue[ph.ref_key] ||= []).push(entry); }
+    else { photosByBucket[bucket].general.push(entry); }
+  });
+
+  projectDrafts = {};
+  (draftRows || []).forEach(row => {
+    const name = idToName[row.project_id]; if (!name) return;
+    const s = draftRowToState(row);
+    const ph = photosByBucket['draft:' + row.project_id] || { stage: {}, issue: {}, general: [] };
+    s.stagePhotoLinks = ph.stage; s.issuePhotoLinks = ph.issue; s.generalPhotos = ph.general;
+    projectDrafts[name] = s;
+  });
+
+  visitHistory = (visitRows || []).map(row => {
+    const name = idToName[row.project_id] || '—';
+    const ph = photosByBucket[row.id] || { stage: {}, issue: {}, general: [] };
+    const urlsOnly = obj => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, v.map(p => p.url)]));
+    const photoCount = ph.general.length + Object.values(ph.stage).flat().length + Object.values(ph.issue).flat().length;
+    return {
+      id: row.id, project: name, visitDate: row.visit_date, visitTime: row.visit_time,
+      supervisorName: row.supervisor_name, siteManager: row.site_manager, projectType: row.project_type,
+      stages: row.stages || {}, stageNotes: row.stage_notes || {}, issues: row.issues || [],
+      stagePhotoLinks: urlsOnly(ph.stage), issuePhotoLinks: urlsOnly(ph.issue),
+      generalPhotosDescs: ph.general.map(p => ({ desc: p.desc })),
+      planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '',
+      planWeek2: row.plan_week2 || [], planWeek2Other: row.plan_week2_other || '',
+      nextVisitDate: row.next_visit_date, overallProgress: row.overall_progress || '',
+      generalNotes: row.general_notes || '', photoCount,
+      progressPct: row.progress_pct, exportedBy: row.supervisor_name
+    };
+  });
+
+  // "last known state" per project — derived from most recent visit, else the draft
+  projectLastStates = {};
+  settings.projects.forEach(name => {
+    const latestVisit = visitHistory.find(v => v.project === name);
+    const draft = projectDrafts[name];
+    const src = latestVisit || (draft && Object.keys(draft.stages || {}).length ? draft : null);
+    if (src) projectLastStates[name] = { stages: { ...src.stages }, stageNotes: { ...src.stageNotes } };
+  });
+}
+
+async function loadAll() {
+  // Fast paint from local cache while the network round-trip completes
+  try { const c = JSON.parse(localStorage.getItem('pikuach_cache') || 'null'); if (c) {
+    settings = { ...settings, ...c.settings }; visitHistory = c.visitHistory || [];
+    projectDrafts = c.projectDrafts || {}; projectLastStates = c.projectLastStates || {};
+    projectIdByName = c.projectIdByName || {};
+  } } catch (e) {}
+
+  setSyncStatus('syncing');
+  try {
+    await pullSettings();
+    await pullProjects();
+    await pullDraftsAndVisits();
+    setSyncStatus('ok');
+  } catch (e) {
+    console.error('pull failed, using cache', e);
+    setSyncStatus('error');
+  }
+  cacheLocally();
+}
+
+function cacheLocally() {
+  localStorage.setItem('pikuach_cache', JSON.stringify({ settings, visitHistory, projectDrafts, projectLastStates, projectIdByName }));
+}
+
+// Kept for compatibility with call sites that mutate settings/visitHistory/
+// projectDrafts/projectLastStates in memory — refreshes the offline cache.
+// Remote persistence for a specific change happens via the push* functions below.
+function saveSettings() { cacheLocally(); }
+function saveHistory() { cacheLocally(); }
+function saveDrafts() { cacheLocally(); }
+function saveLastStates() { cacheLocally(); }
+
+async function pushDraft(name, s) {
+  const pid = projectIdByName[name];
+  if (!pid) return;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('drafts').upsert(stateToDraftRow(pid, s), { onConflict: 'project_id' });
+  setSyncStatus(error ? 'error' : 'ok');
+  if (error) console.error('pushDraft failed', error);
+}
+
+let _saveTimer;
+function autoSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    if (!state.project) return;
+    const toSave = { ...state };
+    projectDrafts[state.project] = toSave;
+    cacheLocally();
+    pushDraft(state.project, toSave);
+  }, 800);
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILITY
+// ═══════════════════════════════════════════════════════════
+let _toastTimer;
+function showToast(msg, ms=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function fmt(d) {
+  if (!d) return '';
+  const p = d.split('-');
+  return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d;
+}
+
+function calcProgress() {
+  const vals = Object.values(state.stages).filter(v => v==='done'||v==='finished'||v==='prog'||v==='notyet');
+  if (!vals.length) return null;
+  return Math.round(vals.reduce((s,v) => s+((v==='done'||v==='finished')?100:v==='prog'?50:0), 0) / vals.length);
+}
+
+function updateProgressBar() {
+  const pct = calcProgress();
+  const el = document.getElementById('progressPct');
+  if (!el) return;
+  el.textContent = pct !== null ? state.project + ' | ' + pct + '%' : (state.project || '—');
+}
+
+function toggleSec(hdr) {
+  hdr.classList.toggle('closed');
+  hdr.nextElementSibling?.classList.toggle('hidden');
+}
+
+function openModal(id) {
+  document.getElementById(id)?.classList.add('open');
+  if (id === 'reportModal') populateReportModal();
+  if (id === 'archiveModal') renderArchive();
+  if (id === 'projectsModal') renderProjectsModal();
+  if (id === 'adminModal') refreshAdminUI();
+}
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════
+// PROJECTS
+// ═══════════════════════════════════════════════════════════
+function renderProjectPills() {
+  const bar = document.getElementById('projectsBar');
+  if (!bar) return;
+  const manageBtn = '<button class="proj-manage-btn" onclick="openModal(\'projectsModal\')">⚙️ פרויקטים</button>';
+  const pills = settings.projects.map(p =>
+    `<button class="proj-pill${state.project===p?' active':''}" onclick="selectProject('${p.replace(/'/g,"\\'")}')">📍 ${p}</button>`
+  ).join('');
+  bar.innerHTML = manageBtn + pills;
+}
+
+function selectProject(name) {
+  // Save current draft before switching
+  if (state.project && state.project !== name) {
+    projectDrafts[state.project] = {...state};
+    cacheLocally();
+    pushDraft(state.project, state);
+    projectLastStates[state.project] = {stages:{...state.stages}, stageNotes:{...state.stageNotes}};
+  }
+  state.project = name;
+  // Load saved draft for this project
+  const draft = projectDrafts[name];
+  if (draft) {
+    Object.assign(state, draft);
+  } else {
+    const last = projectLastStates[name];
+    state.stages = last ? {...last.stages} : {};
+    state.stageNotes = last ? {...last.stageNotes} : {};
+    state.issues = []; state.planWeek1 = []; state.planWeek2 = [];
+    state.planWeek1Other = ''; state.planWeek2Other = '';
+    state.generalNotes = ''; state.overallProgress = '';
+    state.nextVisitDate = '';
+    state.stagePhotoLinks = {}; state.issuePhotoLinks = {};
+    state.generalPhotos = [];
+  }
+  // Load project description
+  const briefEl = document.getElementById('projectBriefText');
+  if (briefEl) briefEl.value = (settings.projectDescriptions || {})[name] || '';
+  // Always stamp fresh date/time
+  const now = new Date();
+  state.visitDate = now.toISOString().slice(0,10);
+  state.visitTime = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  planManualUnlock = false;
+  rebuildAll();
+  updateProgressBar();
+}
+
+function rebuildAll() {
+  // Sync simple fields
+  ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planWeek2Other',
+   'nextVisitDate','generalNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = state[id] || '';
+  });
+  // Rebuild general photos strip
+  const gArea = document.getElementById('genPhotosArea');
+  if (gArea) {
+    gArea.innerHTML = '';
+    (state.generalPhotos || []).forEach(gp => { if (gp && gp.url) addGeneralPhotoToStrip(gp.id, gp.url, gp.desc); });
+  }
+  // Project type buttons
+  document.querySelectorAll('#projTypeBtns .sbtn').forEach(b => {
+    const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+    b.className = 'sbtn' + (v === state.projectType ? ' done' : '');
+  });
+  // Overall progress
+  document.querySelectorAll('.sec-body .sbtn[onclick*="setOverallProg"]').forEach(b => {
+    const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+    b.className = 'sbtn' + (v === state.overallProgress ? (v==='ahead'?' sel-ahead':v==='ontrack'?' sel-ontrack':' sel-behind') : '');
+  });
+  buildStages();
+  buildPlanSection();
+  renderIssues();
+  updateCatLocks();
+  updatePlanLock();
+  updateProgressBar();
+  renderProjectPills();
+}
+
+async function addProject() {
+  const inp = document.getElementById('newProjInput');
+  const name = inp.value.trim();
+  if (!name || settings.projects.includes(name)) return;
+  setSyncStatus('syncing');
+  const { data, error } = await sb.from('projects').insert({ name, created_by: currentUser?.id || null }).select().single();
+  if (error) { setSyncStatus('error'); showToast('⚠️ שגיאה ביצירת פרויקט'); return; }
+  setSyncStatus('ok');
+  settings.projects.push(name);
+  projectIdByName[name] = data.id;
+  settings.projectCustomStages[name] = [];
+  settings.projectDescriptions[name] = '';
+  cacheLocally();
+  inp.value = '';
+  renderProjectsModal();
+  renderProjectPills();
+  selectProject(name);
+  closeModal('projectsModal');
+}
+
+async function deleteProject(name) {
+  if (!confirm('מחק פרויקט "' + name + '"? פעולה זו תמחק גם את כל הביקורים וההיסטוריה של הפרויקט עבור כל הצוות, ולא ניתנת לביטול.')) return;
+  const pid = projectIdByName[name];
+  setSyncStatus('syncing');
+  const { error } = pid ? await sb.from('projects').delete().eq('id', pid) : { error: null };
+  setSyncStatus(error ? 'error' : 'ok');
+  if (error) { showToast('⚠️ שגיאה במחיקה'); return; }
+  settings.projects = settings.projects.filter(p => p !== name);
+  delete projectDrafts[name]; delete projectLastStates[name]; delete projectIdByName[name];
+  visitHistory = visitHistory.filter(v => v.project !== name);
+  cacheLocally();
+  if (state.project === name) { state.project = ''; }
+  renderProjectsModal(); renderProjectPills();
+}
+
+function renderProjectsModal() {
+  const el = document.getElementById('projModalList');
+  if (!el) return;
+  el.innerHTML = settings.projects.map(p =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #eee">
+      <span style="flex:1;font-weight:600;font-size:13px">📍 ${p}</span>
+      <button onclick="selectProject('${p.replace(/'/g,"\\'")}');closeModal('projectsModal')" style="padding:5px 12px;background:var(--blue);color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit;font-size:12px">בחר</button>
+      <button onclick="deleteProject('${p.replace(/'/g,"\\'")}')" style="padding:5px 10px;background:#fee;border:1px solid #fcc;border-radius:7px;cursor:pointer;font-family:inherit;font-size:12px;color:var(--red)">מחק</button>
+    </div>`
+  ).join('') || '<div style="color:#999;font-size:12px;padding:8px">אין פרויקטים</div>';
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGES
+// ═══════════════════════════════════════════════════════════
+const OPTS = [
+  {key:'done',     lbl:'✓ בוצע',      cls:'done'},
+  {key:'prog',     lbl:'בביצוע',      cls:'prog'},
+  {key:'notyet',   lbl:'○ טרם',       cls:'notyet'},
+  {key:'na',       lbl:'לא רלוונטי',  cls:'na'},
+  {key:'finished', lbl:'🏁 הסתיים',   cls:'finished'}
+];
+
+function cats() {
+  const base = JSON.parse(JSON.stringify(settings.stageCategories || DEFAULT_CATS));
+  const custom = (settings.projectCustomStages || {})[state.project] || [];
+  custom.forEach(({cat, name}) => {
+    if (base[cat] && !base[cat].stages.includes(name)) base[cat].stages.push(name);
+  });
+  return base;
+}
+
+function isCatUnlocked(i) {
+  if (i === 0) return true;
+  if (isAdmin || lockOverride) return true;
+  const prev = cats()[i-1]?.stages || [];
+  const statuses = prev.map(s => state.stages[s]).filter(Boolean);
+  if (!statuses.length) return false;
+  return statuses.some(s=>s==='done'||s==='finished') || statuses.every(s=>s==='na');
+}
+
+function buildStages() {
+  const body = document.getElementById('stagesBody');
+  if (!body) return;
+  body.innerHTML = '';
+  cats().forEach((cat, ci) => {
+    const unlocked = isCatUnlocked(ci);
+    const stages = cat.stages || [];
+    const done = stages.filter(s=>state.stages[s]==='done'||state.stages[s]==='finished').length;
+    const evaled = stages.filter(s=>state.stages[s]&&state.stages[s]!=='na').length;
+    const statTxt = evaled ? done+'/'+evaled+' ✓' : '';
+    const statCls = done===evaled&&evaled>0 ? 'full' : done>0 ? 'part' : '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'cat-wrap' + (unlocked?'':' cat-locked');
+    wrap.dataset.ci = ci;
+
+    let lockBanner = '';
+    if (!unlocked) {
+      const prevName = cats()[ci-1]?.name || '';
+      lockBanner = `<div class="lock-banner" style="display:flex">
+        🔒 יפתח לאחר: <strong style="margin-right:4px">${prevName}</strong>
+        <button class="cat-unlock-btn" style="margin-right:auto" onclick="manualUnlockCat(${ci})">🔓 פתח</button>
+      </div>`;
+    }
+
+    wrap.innerHTML = `
+      <div class="cat-hdr">
+        <span>${cat.name}</span>
+        ${statTxt ? `<span class="cat-stat ${statCls}">${statTxt}</span>` : ''}
+        <button class="cat-unlock-btn" onclick="addStageToCat(${ci})">+ שלב</button>
+      </div>
+      ${lockBanner}
+      <div class="cat-body" id="catBody_${ci}"></div>`;
+    body.appendChild(wrap);
+
+    if (unlocked) {
+      const catBody = wrap.querySelector('.cat-body');
+      stages.forEach(sname => {
+        if (state._hiddenStages?.[sname]) return;
+        if (state.stages[sname] === 'finished') return; // hidden from form
+        catBody.appendChild(buildStageRow(sname, ci));
+      });
+    }
+  });
+}
+
+function buildStageRow(sname, ci) {
+  const row = document.createElement('div');
+  row.className = 'stage-row';
+  row.dataset.stage = sname;
+  const cur = state.stages[sname] || '';
+  const btns = OPTS.map(o =>
+    `<button class="sbtn${cur===o.key?' '+o.cls:''}" onclick="setStage('${sname.replace(/'/g,"\\'")}','${o.key}','${o.cls}')">${o.lbl}</button>`
+  ).join('');
+  const note = (state.stageNotes[sname]||'').replace(/"/g,'&quot;');
+  const pics = (state.stagePhotoLinks[sname]||[]);
+  const thumbs = pics.map(p=>`<div class="thumb-wrap"><img src="${p.url}"><div class="upload-dot ok"></div><button class="thumb-del" onclick="delStagePhoto('${sname.replace(/'/g,"\\'")}','${p.id}')">×</button></div>`).join('');
+  row.innerHTML = `
+    <div class="stage-row-top">
+      <span class="stage-name">${sname}</span>
+      <button class="stage-del-btn" onclick="hideStage('${sname.replace(/'/g,"\\'")}',${ci})" title="הסתר">×</button>
+    </div>
+    <div class="sbtn-group">${btns}</div>
+    <input class="stage-note" placeholder="הערה..." value="${note}" oninput="state.stageNotes['${sname.replace(/'/g,"\\'")}'] = this.value; autoSave()">
+    <div class="stage-photos" id="sPhotos_${sname.replace(/\W/g,'_')}">
+      ${thumbs}
+      <button class="cam-btn" onclick="triggerCam('stage','${sname.replace(/'/g,"\\'")}',false)">📷</button>
+      <button class="cam-btn" onclick="triggerCam('stage','${sname.replace(/'/g,"\\'")}',true)">🖼️</button>
+    </div>`;
+  return row;
+}
+
+function setStage(sname, key, cls) {
+  state.stages[sname] = key;
+  const row = document.querySelector(`.stage-row[data-stage="${CSS.escape(sname)}"]`);
+  if (row) row.querySelectorAll('.sbtn').forEach(b => {
+    const bk = b.getAttribute('onclick').match(/'([^']+)','([^']+)'\)/)?.[2];
+    b.className = 'sbtn' + (bk === key ? ' '+cls : '');
+  });
+  updateCatLocks();
+  updatePlanLock();
+  autoSave();
+  updateProgressBar();
+}
+
+function updateCatLocks() {
+  document.querySelectorAll('.cat-wrap').forEach(wrap => {
+    const ci = parseInt(wrap.dataset.ci);
+    const unlocked = isCatUnlocked(ci);
+    const wasLocked = wrap.classList.contains('cat-locked');
+    if (wasLocked && unlocked) {
+      wrap.classList.remove('cat-locked');
+      wrap.querySelector('.lock-banner')?.remove();
+      // Populate cat body
+      const body = wrap.querySelector('.cat-body');
+      if (body && !body.hasChildNodes()) {
+        (cats()[ci]?.stages||[]).forEach(s => {
+          if (!state._hiddenStages?.[s] && state.stages[s] !== 'finished') body.appendChild(buildStageRow(s, ci));
+        });
+      }
+    } else if (!wasLocked && !unlocked) {
+      wrap.classList.add('cat-locked');
+    }
+  });
+}
+
+function manualUnlockCat(ci) {
+  const wrap = document.querySelector(`.cat-wrap[data-ci="${ci}"]`);
+  if (!wrap) return;
+  wrap.classList.remove('cat-locked');
+  wrap.querySelector('.lock-banner')?.remove();
+  const body = wrap.querySelector('.cat-body');
+  if (body && !body.hasChildNodes()) {
+    (cats()[ci]?.stages||[]).forEach(s => {
+      if (!state._hiddenStages?.[s]) body.appendChild(buildStageRow(s, ci));
+    });
+  }
+  showToast('🔓 קטגוריה נפתחה');
+}
+
+async function addStageToCat(ci) {
+  const name = prompt('שם השלב החדש:');
+  if (!name?.trim()) return;
+  if (!settings.stageCategories[ci].stages) settings.stageCategories[ci].stages = [];
+  settings.stageCategories[ci].stages.push(name.trim());
+  cacheLocally();
+  buildStages();
+  setSyncStatus('syncing');
+  const { error } = await sb.from('app_settings').update({ stage_categories: settings.stageCategories }).eq('id', 1);
+  setSyncStatus(error ? 'error' : 'ok');
+}
+
+function hideStage(sname, ci) {
+  if (!state._hiddenStages) state._hiddenStages = {};
+  state._hiddenStages[sname] = true;
+  autoSave();
+  buildStages();
+}
+
+// ═══════════════════════════════════════════════════════════
+// PLAN SECTION
+// ═══════════════════════════════════════════════════════════
+function isPlanUnlocked() {
+  if (isAdmin || lockOverride || planManualUnlock) return true;
+  return Object.values(state.stages).some(v=>v==='done');
+}
+
+function updatePlanLock() {
+  const lock = document.getElementById('planLock');
+  const body = document.getElementById('planBody');
+  const hdr  = document.getElementById('planHdr');
+  if (!lock||!body||!hdr) return;
+  const unlocked = isPlanUnlocked();
+  lock.style.display = unlocked ? 'none' : 'flex';
+  if (!unlocked) {
+    body.classList.add('hidden');
+    hdr.classList.add('closed');
+  } else {
+    lock.style.display = 'none';
+  }
+}
+
+function togglePlan() {
+  const hdr  = document.getElementById('planHdr');
+  const body = document.getElementById('planBody');
+  if (!isPlanUnlocked()) return;
+  hdr.classList.toggle('closed');
+  body.classList.toggle('hidden');
+}
+
+function manualUnlockPlan() {
+  planManualUnlock = true;
+  updatePlanLock();
+  showToast('🔓 תכנית עבודה נפתחה');
+}
+
+function buildPlanSection() {
+  buildPlanContainer('planWeek1Container', 1);
+  buildPlanContainer('planWeek2Container', 2);
+  document.getElementById('planWeek1Other').value = state.planWeek1Other||'';
+  document.getElementById('planWeek2Other').value = state.planWeek2Other||'';
+  document.getElementById('nextVisitDate').value = state.nextVisitDate||'';
+}
+
+function buildPlanContainer(containerId, week) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const arr = week===1 ? state.planWeek1 : state.planWeek2;
+  const key = week===1 ? 'planWeek1' : 'planWeek2';
+  el.innerHTML = '';
+  cats().forEach((cat, ci) => {
+    const div = document.createElement('div');
+    div.className = 'plan-cat';
+    div.innerHTML = `<div class="plan-cat-title">${cat.name}</div>`;
+    (cat.stages||[]).forEach(sname => {
+      const checked = arr.includes(sname);
+      const opt = document.createElement('div');
+      opt.className = 'plan-opt';
+      opt.innerHTML = `<input type="checkbox" ${checked?'checked':''} onchange="togglePlanOpt(${week},'${sname.replace(/'/g,"\\'")}',this.checked)">
+        <span class="plan-opt-name">${sname}</span>`;
+      div.appendChild(opt);
+    });
+    el.appendChild(div);
+  });
+}
+
+function togglePlanOpt(week, sname, checked) {
+  const key = week===1?'planWeek1':'planWeek2';
+  if (checked) { if (!state[key].includes(sname)) state[key].push(sname); }
+  else { state[key] = state[key].filter(s=>s!==sname); }
+  autoSave();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ISSUES
+// ═══════════════════════════════════════════════════════════
+function addIssue() {
+  const id = 'iss_' + Date.now();
+  state.issues.push({id, severity:'', desc:'', action:'', date:''});
+  renderIssues();
+  autoSave();
+}
+
+async function delIssue(id) {
+  state.issues = state.issues.filter(i=>i.id!==id);
+  const pics = state.issuePhotoLinks[id] || [];
+  delete state.issuePhotoLinks[id];
+  renderIssues(); autoSave();
+  await Promise.all(pics.map(p => deletePhotoRecord(p)));
+}
+
+function renderIssues() {
+  const list = document.getElementById('issuesList');
+  if (!list) return;
+  list.innerHTML = '';
+  state.issues.forEach((iss, idx) => {
+    const card = document.createElement('div');
+    const scls = iss.severity==='גבוהה'?'sev-high':iss.severity==='בינונית'?'sev-med':iss.severity==='נמוכה'?'sev-low':'';
+    card.className = 'issue-card ' + scls;
+    const pics = (state.issuePhotoLinks[iss.id]||[]);
+    const thumbs = pics.map(p=>`<div class="thumb-wrap"><img src="${p.url}"><div class="upload-dot ok"></div><button class="thumb-del" onclick="delIssuePhoto('${iss.id}','${p.id}')">×</button></div>`).join('');
+    card.innerHTML = `
+      <button class="issue-del-btn" onclick="delIssue('${iss.id}')">🗑️</button>
+      <div style="clear:both;margin-bottom:8px">
+        <label class="field-lbl">חומרה</label>
+        <div class="sbtn-group">
+          <button class="sbtn${iss.severity==='גבוהה'?' done':''}" onclick="setIssueSev('${iss.id}','גבוהה',this)">🔴 גבוהה</button>
+          <button class="sbtn${iss.severity==='בינונית'?' prog':''}" onclick="setIssueSev('${iss.id}','בינונית',this)">🟡 בינונית</button>
+          <button class="sbtn${iss.severity==='נמוכה'?' notyet':''}" onclick="setIssueSev('${iss.id}','נמוכה',this)">🟢 נמוכה</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-lbl">תיאור הממצא</label>
+        <textarea rows="2" placeholder="תאר את הממצא..." oninput="state.issues[${idx}].desc=this.value;autoSave()">${iss.desc||''}</textarea>
+      </div>
+      <div class="row2">
+        <div class="field-group">
+          <label class="field-lbl">פעולה מתקנת</label>
+          <input type="text" value="${(iss.action||'').replace(/"/g,'&quot;')}" placeholder="פעולה נדרשת..." oninput="state.issues[${idx}].action=this.value;autoSave()">
+        </div>
+        <div class="field-group">
+          <label class="field-lbl">יעד לתיקון</label>
+          <input type="date" value="${iss.date||''}" oninput="state.issues[${idx}].date=this.value;autoSave()">
+        </div>
+      </div>
+      <div class="stage-photos" id="iPhotos_${iss.id}">
+        ${thumbs}
+        <button class="cam-btn" onclick="triggerCam('issue','${iss.id}',false)">📷</button>
+        <button class="cam-btn" onclick="triggerCam('issue','${iss.id}',true)">🖼️</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function setIssueSev(id, sev, btn) {
+  const iss = state.issues.find(i=>i.id===id);
+  if (iss) { iss.severity = sev; autoSave(); renderIssues(); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// VISIT INFO HELPERS
+// ═══════════════════════════════════════════════════════════
+function setProjectType(btn, val) {
+  state.projectType = val;
+  document.querySelectorAll('#projTypeBtns .sbtn').forEach(b => {
+    const bv = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+    b.className = 'sbtn' + (bv===val?' done':'');
+  });
+  autoSave();
+}
+
+function setOverallProg(btn, val) {
+  state.overallProgress = val;
+  const cls = val==='ahead'?' sel-ahead':val==='ontrack'?' sel-ontrack':' sel-behind';
+  btn.closest('.sbtn-group').querySelectorAll('.sbtn').forEach(b => {
+    const bv = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+    b.className = 'sbtn' + (bv===val?cls:'');
+  });
+  autoSave();
+}
+
+// ═══════════════════════════════════════════════════════════
+// PHOTOS
+// ═══════════════════════════════════════════════════════════
+function triggerCam(type, key, useGallery) {
+  _camTarget = {type, key};
+  const inp = document.getElementById(useGallery ? 'galInput' : 'camInput');
+  inp.value = '';
+  inp.click();
+}
+
+async function uploadPhotoRecord(kind, projectId, refKey, dataUrl, desc) {
+  const path = projectId + '/' + kind + '/' + crypto.randomUUID() + '.jpg';
+  const blob = await (await fetch(dataUrl)).blob();
+  const { error: upErr } = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if (upErr) { console.error(upErr); showToast('⚠️ שגיאת העלאת תמונה'); return null; }
+  const { data, error } = await sb.from('visit_photos').insert({
+    project_id: projectId, kind, ref_key: refKey, storage_path: path,
+    description: desc || '', created_by: currentUser?.id || null
+  }).select().single();
+  if (error) { console.error(error); showToast('⚠️ שגיאה בשמירת תמונה'); return null; }
+  return { id: data.id, url: photoPublicUrl(path), desc: desc || '', path };
+}
+
+async function deletePhotoRecord(p) {
+  if (!p) return;
+  try { await sb.storage.from('photos').remove([p.path]); } catch (e) {}
+  try { await sb.from('visit_photos').delete().eq('id', p.id); } catch (e) {}
+}
+
+function onCamFile(inp) {
+  if (!inp.files.length) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const { type, key } = _camTarget || {};
+    const pid = projectIdByName[state.project];
+    if (!pid) { showToast('⚠️ בחר פרויקט תחילה'); return; }
+    const compressed = await compressImg(e.target.result, 1400, 0.80);
+    showToast('⏳ מעלה תמונה...');
+
+    if (type === 'stage') {
+      const p = await uploadPhotoRecord('stage', pid, key, compressed, '');
+      if (!p) return;
+      if (!state.stagePhotoLinks[key]) state.stagePhotoLinks[key] = [];
+      state.stagePhotoLinks[key].push(p);
+      const strip = document.getElementById('sPhotos_' + key.replace(/\W/g,'_'));
+      if (strip) {
+        const wrap = document.createElement('div');
+        wrap.className = 'thumb-wrap';
+        wrap.innerHTML = `<img src="${p.url}"><div class="upload-dot ok"></div><button class="thumb-del" onclick="delStagePhoto('${key.replace(/'/g,"\\'")}','${p.id}')">×</button>`;
+        strip.insertBefore(wrap, strip.querySelector('.cam-btn'));
+      }
+      showToast('✓ תמונה הועלתה');
+    } else if (type === 'issue') {
+      const p = await uploadPhotoRecord('issue', pid, key, compressed, '');
+      if (!p) return;
+      if (!state.issuePhotoLinks[key]) state.issuePhotoLinks[key] = [];
+      state.issuePhotoLinks[key].push(p);
+      const strip = document.getElementById('iPhotos_' + key);
+      if (strip) {
+        const wrap = document.createElement('div');
+        wrap.className = 'thumb-wrap';
+        wrap.innerHTML = `<img src="${p.url}"><div class="upload-dot ok"></div><button class="thumb-del" onclick="delIssuePhoto('${key}','${p.id}')">×</button>`;
+        strip.insertBefore(wrap, strip.querySelector('.cam-btn'));
+      }
+      showToast('✓ תמונת ממצא הועלתה');
+    } else {
+      // general
+      const p = await uploadPhotoRecord('general', pid, null, compressed, '');
+      if (!p) return;
+      if (!state.generalPhotos) state.generalPhotos = [];
+      state.generalPhotos.push(p);
+      addGeneralPhotoToStrip(p.id, p.url, '');
+      showToast('✓ תמונה הועלתה');
+    }
+  };
+  reader.readAsDataURL(inp.files[0]);
+}
+
+function compressImg(dataUrl, maxDim=1400, quality=0.80) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const r = Math.min(maxDim/img.width, maxDim/img.height, 1);
+      const w = Math.round(img.width*r), h = Math.round(img.height*r);
+      const c = document.createElement('canvas');
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function delStagePhoto(sname, id) {
+  const pics = state.stagePhotoLinks[sname] || [];
+  const p = pics.find(x => x.id === id);
+  state.stagePhotoLinks[sname] = pics.filter(x => x.id !== id);
+  buildStages();
+  await deletePhotoRecord(p);
+}
+async function delIssuePhoto(id, photoId) {
+  const pics = state.issuePhotoLinks[id] || [];
+  const p = pics.find(x => x.id === photoId);
+  state.issuePhotoLinks[id] = pics.filter(x => x.id !== photoId);
+  renderIssues();
+  await deletePhotoRecord(p);
+}
+
+// ─── GENERAL PHOTOS helpers ───────────────────────────────────────────────────
+function addGeneralPhotoToStrip(id, src, desc) {
+  const area = document.getElementById('genPhotosArea');
+  if (!area) return;
+  const item = document.createElement('div');
+  item.className = 'gen-photo-item';
+  item.dataset.id = id;
+  const hasApi = !!(settings && settings.apiKey);
+  item.innerHTML =
+    '<img src="' + src + '" alt="תמונה">' +
+    '<div class="gen-photo-info">' +
+      '<div style="display:flex;gap:4px;align-items:flex-start">' +
+        '<textarea class="gen-photo-desc" rows="2" placeholder="תיאור התמונה..." ' +
+          'onchange="updateGeneralPhotoDesc(\'' + id + '\',this.value)" ' +
+          'oninput="updateGeneralPhotoDesc(\'' + id + '\',this.value)">' + (desc||'') + '</textarea>' +
+        (hasApi ? '<button onclick="improvePhotoDesc(\'' + id + '\')" title="שפר ניסוח" style="background:var(--blue);color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">✨ שפר</button>' : '') +
+      '</div>' +
+      '<button onclick="delGeneralPhoto(\'' + id + '\')" style="background:#fee;border:1px solid #fcc;color:#c00;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;align-self:flex-end">× מחק</button>' +
+    '</div>';
+  area.appendChild(item);
+}
+
+async function delGeneralPhoto(id) {
+  const p = (state.generalPhotos || []).find(g => g.id === id);
+  state.generalPhotos = (state.generalPhotos || []).filter(g => g.id !== id);
+  const el = document.querySelector('.gen-photo-item[data-id="' + id + '"]');
+  if (el) el.remove();
+  await deletePhotoRecord(p);
+}
+
+async function updateGeneralPhotoDesc(id, val) {
+  const p = (state.generalPhotos || []).find(g => g.id === id);
+  if (p) p.desc = val;
+  await sb.from('visit_photos').update({ description: val }).eq('id', id);
+}
+
+async function improvePhotoDesc(id) {
+  if (!settings.apiKey) return;
+  const el = document.querySelector('.gen-photo-item[data-id="' + id + '"] .gen-photo-desc');
+  if (!el || !el.value.trim()) { showToast('⚠️ כתוב תיאור תחילה'); return; }
+  showToast('⏳ משפר ניסוח...');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 250,
+        messages: [{role:'user', content:'שפר את הניסוח של תיאור תמונה זה לדוח פיקוח בנייה מקצועי בעברית. החזר רק את הטקסט המשופר:' + el.value}]
+      })
+    });
+    if (res.ok) {
+      const d = await res.json();
+      const improved = d.content?.[0]?.text?.trim();
+      if (improved) {
+        el.value = improved;
+        updateGeneralPhotoDesc(id, improved);
+        showToast('✓ תיאור שופר');
+      }
+    }
+  } catch(e) { showToast('⚠️ שגיאה בשיפור'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SMART AI PARSER
+// ═══════════════════════════════════════════════════════════
+async function parseSmartText() {
+  const text = document.getElementById('smartText').value.trim();
+  if (!text) return;
+  showToast('⏳ מנתח...');
+  if (settings.apiKey) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': settings.apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model:'claude-haiku-4-5-20251001',
+          max_tokens:1024,
+          messages:[{role:'user', content:`אתה מנתח דוחות בנייה בעברית. תן JSON בלבד (ללא הסבר) עם מפתחות "done", "prog", "notyet" שכל אחד מהם מכיל רשימת שמות שלבים מהרשימה הזו:\n${cats().flatMap(c=>c.stages).join(', ')}\n\nהטקסט: ${text}`}]
+        })
+      });
+      if (res.ok) {
+        const d = await res.json();
+        const raw = d.content?.[0]?.text || '';
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          const parsed = JSON.parse(m[0]);
+          (parsed.done||[]).forEach(s => { if (state.stages.hasOwnProperty(s)||true) state.stages[s]='done'; });
+          (parsed.prog||[]).forEach(s => { state.stages[s]='prog'; });
+          (parsed.notyet||[]).forEach(s => { state.stages[s]='notyet'; });
+          buildStages(); updateCatLocks(); updatePlanLock(); updateProgressBar(); autoSave();
+          showToast('✓ מולאו ' + ((parsed.done||[]).length+(parsed.prog||[]).length+(parsed.notyet||[]).length) + ' שלבים');
+          return;
+        }
+      }
+    } catch(e) {}
+  }
+  // Keyword fallback
+  const DONE_KW=['סיים','הושלם','בוצע','נגמר','הסתיים'];
+  const PROG_KW=['בביצוע','בתהליך','מתבצע','עובד','בהתקדמות'];
+  const NOT_KW=['טרם','לא החל','עדיין לא','טרם החל'];
+  let count = 0;
+  cats().flatMap(c=>c.stages).forEach(sname => {
+    if (text.includes(sname)) {
+      const ctx = text.slice(Math.max(0,text.indexOf(sname)-30), text.indexOf(sname)+sname.length+30);
+      if (DONE_KW.some(k=>ctx.includes(k))) { state.stages[sname]='done'; count++; }
+      else if (PROG_KW.some(k=>ctx.includes(k))) { state.stages[sname]='prog'; count++; }
+      else if (NOT_KW.some(k=>ctx.includes(k))) { state.stages[sname]='notyet'; count++; }
+    }
+  });
+  buildStages(); updateCatLocks(); updatePlanLock(); updateProgressBar(); autoSave();
+  showToast(count ? '✓ זוהו ' + count + ' שלבים' : 'לא זוהו שלבים. נסה לציין שמות מדויקים');
+}
+
+async function learnFromProject() {
+  const text = (document.getElementById('projectBriefText') || {}).value;
+  if (!text || !text.trim()) { showToast('⚠ כתוב תיאור פרויקט תחילה'); return; }
+  if (!state.project) { showToast('⚠ בחר פרויקט תחילה'); return; }
+  const statusEl = document.getElementById('learnStatus');
+  if (statusEl) statusEl.textContent = '⧗ מנתח את הפרויקט...';
+  showToast('⧗ מנתח...');
+
+  if (!settings.projectCustomStages) settings.projectCustomStages = {};
+  if (!settings.projectDescriptions) settings.projectDescriptions = {};
+  settings.projectDescriptions[state.project] = text.trim();
+
+  const CAT_NAMES = [
+    'טרום חפירה וקדם עבודה','שלד הבניין','טרום טיח – תשתיות',
+    'טיח ואיטום','גמרים – מעטפת','גמרים – פנים דירה','מערכות בניין','עבודות חוץ ופיתוח'
+  ];
+
+  let added = [];
+
+  if (settings.apiKey) {
+    try {
+      const catList = CAT_NAMES.map((n,i) => i + ':' + n).join(', ');
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001', max_tokens: 900,
+          messages: [{role:'user', content:
+            'אתה מומחה לפיקוח בנייה. על בסיס תיאור הפרויקט הבא, זהה אלמנטים ייחודיים (בריכה, מרתף, חדר כושר וכו׳) והצע שלבי בנייה ייחודיים שלא קיימים בבנייה רגילה.\n' +
+            'קטגוריות זמינות: ' + catList + '\n' +
+            'החזר JSON בדיוק: {"stages":[{"cat":מספר,"name":"שם שלב בעברית"},...]}\n' +
+            'תיאור הפרויקט: ' + text.trim()
+          }]
+        })
+      });
+      if (res.ok) {
+        const d = await res.json();
+        const raw = (d.content && d.content[0] && d.content[0].text) || '';
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          try {
+            const parsed = JSON.parse(m[0]);
+            added = (parsed.stages || []).filter(s => s.cat >= 0 && s.cat <= 7 && s.name);
+          } catch(e) {}
+        }
+      }
+    } catch(e) { console.warn('AI learn failed', e); }
+  }
+
+  // Keyword fallback
+  if (!added.length) {
+    const FEAT = [
+      ['בריכה',          [{cat:4,name:'עבודות בריכת שחייה'},{cat:4,name:'מסננת ומשאבת בריכה'},{cat:3,name:'איטום מיוחד לבריכה'}]],
+      ['ג׳קוזי',         [{cat:4,name:'ג׳קוזי – אינסטלציה'},{cat:3,name:'איטום ג׳קוזי'}]],
+      ['חניה תת',        [{cat:0,name:'חניה תת-קרקעית – חפירה ועיצוב'},{cat:3,name:'איטום חניה תת-קרקעית'}]],
+      ['מחסן',           [{cat:5,name:'מחסנים – ריצוף ושלד'},{cat:5,name:'מחסנים – דלתות ואבטחה'}]],
+      ['ממ"ד',           [{cat:1,name:'ממ"ד – שלד ומסגרת'},{cat:5,name:'ממ"ד – דלת מיגון ואטימה'}]],
+      ['מרתף',           [{cat:0,name:'מרתף – חפירה ועיצוב'},{cat:3,name:'מרתף – איטום קירות ורצפה'}]],
+      ['גינה',           [{cat:7,name:'תכנון גינה ועיצוב נוף'},{cat:7,name:'מערכת השקיה אוטומטית'}]],
+      ['חדר כושר',       [{cat:7,name:'חדר כושר – ריצוף גומי'},{cat:7,name:'חדר כושר – מיזוג ואוורור'}]],
+      ['פנטהאוז',        [{cat:5,name:'פנטהאוז – ריצוף יוקרתי'},{cat:4,name:'מרפסת פנטהאוז ומעקה'}]],
+      ['לובי',           [{cat:5,name:'לובי – שיש ועיצוב'},{cat:6,name:'לובי – תאורה ואינטרקום'}]],
+      ['גג ירוק',        [{cat:7,name:'גג ירוק – שכבות סינון'},{cat:3,name:'איטום גג ירוק'}]],
+      ['חדר קהילה',      [{cat:7,name:'חדר קהילה – ריצוף ותאורה'},{cat:6,name:'חדר קהילה – מיזוג ואקוסטיקה'}]],
+      ['ספא',            [{cat:4,name:'ספא – ריצוף'},{cat:3,name:'ספא – איטום'},{cat:6,name:'ספא – מערכות טמפרטורה'}]],
+      ['חדר אשפה',       [{cat:7,name:'חדר אשפה ומחזור'},{cat:6,name:'מיכל זבל תת-קרקעי'}]],
+      ['מבנה ציבור',     [{cat:6,name:'נגישות ומעלון נכים'},{cat:7,name:'שילוט ציבורי'}]]
+    ];
+    FEAT.forEach(([kw, stages]) => {
+      if (text.includes(kw)) added.push(...stages);
+    });
+  }
+
+  // Dedupe vs existing stages
+  const allExisting = cats().flatMap(c => c.stages);
+  const newStages = added.filter(s => !allExisting.includes(s.name))
+    .filter((s,i,arr) => arr.findIndex(x => x.name === s.name) === i);
+
+  settings.projectCustomStages[state.project] = [
+    ...(settings.projectCustomStages[state.project] || []),
+    ...newStages
+  ].filter((s,i,arr) => arr.findIndex(x => x.name === s.name) === i);
+
+  cacheLocally();
+  buildStages(); updateCatLocks(); updatePlanLock();
+
+  const pid = projectIdByName[state.project];
+  if (pid) {
+    setSyncStatus('syncing');
+    const { error } = await sb.from('projects').update({
+      description: settings.projectDescriptions[state.project],
+      custom_stages: settings.projectCustomStages[state.project]
+    }).eq('id', pid);
+    setSyncStatus(error ? 'error' : 'ok');
+  }
+
+  const msg = newStages.length
+    ? '✓ נוספו ' + newStages.length + ' שלבים חדשים לפרויקט: ' + newStages.map(s=>s.name).join(', ')
+    : added.length ? 'כל השלבים המוצעים כבר קיימים' : '⚠ לא זוהו שלבים ייחודיים – פרט יותר';
+  if (statusEl) statusEl.textContent = msg;
+  showToast(newStages.length ? '✓ נוספו ' + newStages.length + ' שלבים' : '⚠ לא נוספו שלבים חדשים');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ARCHIVE
+// ═══════════════════════════════════════════════════════════
+async function archiveVisit() {
+  if (!state.project) { showToast('⚠️ בחר פרויקט תחילה'); return; }
+  if (!state.visitDate) { showToast('⚠️ הכנס תאריך ביקור'); return; }
+  const pid = projectIdByName[state.project];
+  if (!pid) { showToast('⚠️ פרויקט לא נמצא'); return; }
+  if (!confirm('שמור ביקור ב-' + fmt(state.visitDate) + ' לפרויקט "' + state.project + '"?')) return;
+  const pct = calcProgress();
+
+  setSyncStatus('syncing');
+  const row = stateToDraftRow(pid, state);
+  delete row.updated_by; delete row.updated_at;
+  const { data, error } = await sb.from('visits').insert({ ...row, progress_pct: pct, created_by: currentUser?.id || null }).select().single();
+  if (error) { setSyncStatus('error'); console.error(error); showToast('⚠️ שגיאה בשמירת הביקור'); return; }
+  // attach photos captured during this draft to the newly archived visit
+  await sb.from('visit_photos').update({ visit_id: data.id }).eq('project_id', pid).is('visit_id', null);
+  setSyncStatus('ok');
+
+  const urlsOnly = obj => Object.fromEntries(Object.entries(obj).map(([k,v]) => [k, v.map(p=>p.url)]));
+  const rec = {
+    id: data.id, project: state.project,
+    visitDate: state.visitDate, visitTime: state.visitTime,
+    supervisorName: state.supervisorName, siteManager: state.siteManager,
+    projectType: state.projectType, stages: {...state.stages},
+    stageNotes: {...state.stageNotes}, issues: state.issues.map(i=>({...i})),
+    stagePhotoLinks: urlsOnly(state.stagePhotoLinks), issuePhotoLinks: urlsOnly(state.issuePhotoLinks),
+    planWeek1: [...state.planWeek1], planWeek1Other: state.planWeek1Other,
+    planWeek2: [...state.planWeek2], planWeek2Other: state.planWeek2Other,
+    nextVisitDate: state.nextVisitDate, overallProgress: state.overallProgress,
+    generalNotes: state.generalNotes,
+    generalPhotosDescs: (state.generalPhotos||[]).map(gp=>({desc:(gp&&gp.desc)||''})),
+    photoCount: (state.generalPhotos||[]).length + Object.values(state.stagePhotoLinks).flat().length + Object.values(state.issuePhotoLinks).flat().length,
+    progressPct: pct, exportedBy: state.supervisorName
+  };
+  visitHistory.unshift(rec);
+  cacheLocally();
+  projectLastStates[state.project] = {stages:{...state.stages}, stageNotes:{...state.stageNotes}};
+  showToast('✓ ביקור נשמר בארכיון');
+}
+
+async function deleteVisit(id) {
+  if (!confirm('מחק ביקור זה?')) return;
+  setSyncStatus('syncing');
+  const { data: photos } = await sb.from('visit_photos').select('storage_path').eq('visit_id', id);
+  if (photos && photos.length) { try { await sb.storage.from('photos').remove(photos.map(p=>p.storage_path)); } catch(e){} }
+  const { error } = await sb.from('visits').delete().eq('id', id);
+  setSyncStatus(error ? 'error' : 'ok');
+  if (error) { showToast('⚠️ שגיאה במחיקה'); return; }
+  visitHistory = visitHistory.filter(v=>v.id!==id);
+  cacheLocally();
+  renderArchive();
+}
+
+function renderArchive() {
+  const el = document.getElementById('archiveList');
+  if (!el) return;
+  if (!visitHistory.length) { el.innerHTML='<div style="color:#999;font-size:13px;padding:8px">אין ביקורים שמורים</div>'; return; }
+  el.innerHTML = visitHistory.slice(0,50).map(v => {
+    const pc = v.progressPct;
+    const col = pc>=75?'var(--green)':pc>=40?'var(--orange)':'var(--blue2)';
+    return `<div class="arc-card">
+      <div class="arc-info">
+        <div class="arc-proj">📍 ${v.project}</div>
+        <div class="arc-date">📅 ${fmt(v.visitDate)}${v.visitTime?' | ⏰ '+v.visitTime:''}${v.supervisorName?' | 👷 '+v.supervisorName:''}</div>
+        ${pc!=null?`<div class="arc-pct" style="color:${col};font-weight:700">📊 ${pc}%</div>`:''}
+        ${v.issues?.length?`<div class="arc-pct">⚠️ ${v.issues.length} ממצאים</div>`:''}
+      </div>
+      <button class="arc-del" onclick="deleteVisit('${v.id}')">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════════════
+function openReportInBlob(html) {
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) {
+    document.getElementById('inlineFrame').srcdoc = html;
+    openModal('inlineReportModal');
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function downloadAsDoc(contentHtml, filename) {
+  const wordHtml = '\uFEFF<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+    'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
+    'xmlns="http://www.w3.org/TR/REC-html40" dir="rtl">\n' +
+    '<head>\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n' +
+    '<meta name="ProgId" content="Word.Document">\n' +
+    '<style>\n' +
+    '@page {size:21.0cm 29.7cm;margin:2.0cm 2.0cm 2.0cm 2.0cm}\n' +
+    'body{font-family:Arial,sans-serif;font-size:11pt;direction:rtl;text-align:right;margin:0;padding:12pt}\n' +
+    'h1,h2,h3{font-family:Arial,sans-serif;direction:rtl}\n' +
+    'p{direction:rtl;text-align:right;margin-bottom:4pt}\n' +
+    'table{border-collapse:collapse;width:100%;direction:rtl}\n' +
+    'th,td{font-family:Arial,sans-serif;text-align:right;padding:5pt 7pt;border:1pt solid #ccc;vertical-align:top}\n' +
+    'th{background:#1F4E79;color:#fff;font-weight:bold}\n' +
+    'tr:nth-child(even) td{background:#F5F8FC}\n' +
+    'p,li{line-height:1.6}\n' +
+    'ul{padding-right:16pt}\n' +
+    '</style>\n</head>\n<body>\n' +
+    contentHtml + '\n</body></html>';
+  const blob = new Blob([wordHtml], {type:'application/msword;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename || 'דוח.doc';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 3000);
+}
+
+async function generateCurrentVisitReport() {
+  closeModal('reportModal');
+  showToast('⧗ מכין דוח...');
+  try {
+    const proj = state.project || 'פרויקט לא מוגדר';
+    const date = fmt(state.visitDate);
+    const pct  = calcProgress();
+
+    // Photos are already uploaded to Supabase Storage on capture — link directly
+    const compStage = {};
+    for (const [s, pics] of Object.entries(state.stagePhotoLinks || {})) {
+      if (pics && pics.length) compStage[s] = pics.map(p => p.url);
+    }
+    const compIssue = {};
+    for (const iss of (state.issues || [])) {
+      const pics = state.issuePhotoLinks[iss.id] || [];
+      if (pics.length) compIssue[iss.id] = pics.map(p => p.url);
+    }
+    const compGeneral = (state.generalPhotos || []).filter(Boolean).map(gp => ({src: gp.url, desc: gp.desc || ''}));
+
+    // Stage table rows
+    const stageRows = cats().flatMap(cat => (cat.stages || [])
+      .filter(s => state.stages[s] && state.stages[s] !== '' && state.stages[s] !== 'na')
+      .map(s => {
+        const sv = state.stages[s];
+        const icon = sv==='done'?'✅':sv==='finished'?'🏁':sv==='prog'?'🔄':'⏳';
+        const lbl  = sv==='done'?'בוצע':sv==='finished'?'הסתיים':sv==='prog'?'בביצוע':'טרם החל';
+        const note = (state.stageNotes[s] || '').replace(/</g, '&lt;');
+        return '<tr><td><b>' + cat.name + '</b><br><span style="font-size:9pt">' + s + '</span></td>' +
+               '<td style="text-align:center;font-size:14pt">' + icon + '</td>' +
+               '<td>' + lbl + '</td>' +
+               '<td style="font-size:9.5pt;color:#555">' + note + '</td></tr>';
+      })
+    ).join('');
+
+    // Stage photo blocks
+    const stagePics = Object.entries(compStage).filter(([,p]) => p && p.length).map(([s,pics]) => {
+      const sv = state.stages[s];
+      const icon = sv==='done'?'✅':sv==='prog'?'🔄':'📷';
+      return '<p style="font-weight:bold;color:#1F4E79;margin:0 0 4pt">' + icon + ' ' + s + '</p>' +
+        pics.map(src => '<img src="' + src + '" style="width:160pt;height:110pt;object-fit:cover;border-radius:4pt;border:1pt solid #ccc;margin:2pt">').join(' ') +
+        (state.stageNotes[s] ? '<p style="font-size:9.5pt;color:#555;margin-top:3pt">📝 ' + state.stageNotes[s] + '</p>' : '') +
+        '<p style="border-top:1pt solid #eee;margin:8pt 0"> </p>';
+    }).join('');
+
+    // General photo blocks
+    const generalPics = compGeneral.length ? compGeneral.map(gp =>
+      '<div style="display:inline-block;vertical-align:top;margin:5pt;text-align:center;max-width:190pt">' +
+      '<img src="' + gp.src + '" style="width:180pt;height:130pt;object-fit:cover;border-radius:4pt;border:1pt solid #ccc;display:block">' +
+      (gp.desc ? '<p style="font-size:9.5pt;color:#333;margin-top:4pt;direction:rtl">' + gp.desc + '</p>' : '') +
+      '</div>'
+    ).join('') : '';
+
+    // Issues rows
+    const issueRows = (state.issues || []).filter(i => i.desc).map((iss, i) => {
+      const sc = {'גבוהה':'#C00','בינונית':'#E26B0A','נמוכה':'#375623'};
+      const pics = compIssue[iss.id] || [];
+      const imgs = pics.map(src => '<img src="' + src + '" style="width:110pt;height:80pt;object-fit:cover;border-radius:3pt;border:1pt solid #ccc;margin:2pt">').join('');
+      return '<tr>' +
+        '<td>' + (i+1) + '</td>' +
+        '<td style="color:' + (sc[iss.severity]||'#333') + ';font-weight:bold">' + (iss.severity||'—') + '</td>' +
+        '<td>' + (iss.desc||'').replace(/</g,'&lt;') + (imgs?'<br>'+imgs:'') + '</td>' +
+        '<td>' + (iss.action||'').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (iss.date?fmt(iss.date):'—') + '</td></tr>';
+    }).join('');
+
+    const doneN  = Object.values(state.stages).filter(v => v==='done'||v==='finished').length;
+    const progN  = Object.values(state.stages).filter(v => v==='prog').length;
+    const issN   = (state.issues||[]).filter(i => i.desc).length;
+    const highN  = (state.issues||[]).filter(i => i.severity==='גבוהה').length;
+    const planItems = (state.planWeek1||[]).map(p => '<li>' + p + '</li>').join('');
+    const today  = new Date().toLocaleDateString('he-IL',{year:'numeric',month:'long',day:'numeric'});
+
+    const content =
+      '<h1 style="text-align:center;color:#1F4E79;font-size:18pt;margin-bottom:6pt">📋 דוח ביקור אתר</h1>' +
+      '<p style="text-align:center;font-size:11pt;margin-bottom:4pt">📍 <b>' + proj + '</b> &nbsp;|  📅 ' + date + (state.visitTime?' &nbsp;|  ⏰ '+state.visitTime:'') + '</p>' +
+      (state.supervisorName ? '<p style="text-align:center;font-size:10.5pt;margin-bottom:4pt">👷 ' + state.supervisorName + (state.siteManager?' &nbsp;|  🦺 '+state.siteManager:'') + '</p>' : '') +
+      (pct !== null ? '<p style="text-align:center;color:#1F4E79;font-weight:bold;margin-bottom:12pt">📊 התקדמות כוללת: ' + pct + '%</p>' : '') +
+      '<hr style="border:none;border-top:2pt solid #1F4E79;margin-bottom:14pt">' +
+
+      '<table style="width:100%;border:1pt solid #1F4E79;margin-bottom:14pt">' +
+      '<tr>' +
+      '<td style="text-align:center;padding:8pt;background:#EBF3FB"><div style="font-size:20pt;font-weight:bold;color:#1F4E79">' + doneN + '</div><div style="font-size:9pt">בוצע/הסתיים</div></td>' +
+      '<td style="text-align:center;padding:8pt;background:#FFF8F0"><div style="font-size:20pt;font-weight:bold;color:#E26B0A">' + progN + '</div><div style="font-size:9pt">בביצוע</div></td>' +
+      '<td style="text-align:center;padding:8pt;background:' + (highN>0?'#FFF0F0':'#F0FAF2') + '"><div style="font-size:20pt;font-weight:bold;color:' + (highN>0?'#C00':'#27ae60') + '">' + issN + '</div><div style="font-size:9pt">ממצאים</div></td>' +
+      '<td style="text-align:center;padding:8pt;background:' + (highN>0?'#FFF0F0':'#F0FAF2') + '"><div style="font-size:20pt;font-weight:bold;color:' + (highN>0?'#C00':'#27ae60') + '">' + highN + '</div><div style="font-size:9pt">דחופים</div></td>' +
+      '</tr></table>' +
+
+      (stageRows ?
+        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">🏗 שלבי הבנייה</h2>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt">' +
+        '<tr style="background:#1F4E79;color:#fff"><th style="padding:6pt;text-align:right">קטגוריה / שלב</th><th style="padding:6pt;width:30pt">סטטוס</th><th style="padding:6pt;width:80pt">פירוט</th><th style="padding:6pt">הערה</th></tr>' +
+        stageRows + '</table>' : '') +
+
+      (stagePics ?
+        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">📷 תמונות שלבי בנייה</h2>' + stagePics : '') +
+
+      (generalPics ?
+        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">📷 תמונות כלליות</h2>' +
+        '<div style="text-align:center">' + generalPics + '</div>' : '') +
+
+      (issueRows ?
+        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">⚠ ממצאים</h2>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt">' +
+        '<tr style="background:#1F4E79;color:#fff"><th style="padding:5pt;text-align:right;width:20pt">#</th><th style="padding:5pt;text-align:right;width:50pt">חומרה</th><th style="padding:5pt;text-align:right">תיאור</th><th style="padding:5pt;text-align:right">פעולה</th><th style="padding:5pt;text-align:right;width:50pt">יעד</th></tr>' +
+        issueRows + '</table>' :
+        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">⚠ ממצאים</h2><p style="color:#888">לא נמצאו ממצאים.</p>') +
+
+      (planItems ? '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">📋 תכנון שבוע קרוב</h2><ul style="padding-right:16pt">' + planItems + '</ul>' : '') +
+      (state.nextVisitDate ? '<p style="margin-top:8pt"><b>📅 ביקור הבא:</b> ' + fmt(state.nextVisitDate) + '</p>' : '') +
+
+      (state.generalNotes && state.generalNotes.trim() ?
+        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-top:14pt;margin-bottom:8pt">📝 הערות כלליות</h2>' +
+        '<div style="background:#EBF3FB;border-right:3pt solid #2E75B6;padding:10pt;direction:rtl;line-height:1.8">' +
+        state.generalNotes.replace(/\n/g,'<br>') + '</div>' : '') +
+
+      '<p style="margin-top:20pt;font-size:9pt;color:#999;border-top:1pt solid #ddd;padding-top:8pt">הופק: ' + today + ' | פיקוח בנייה – תמ"א 38</p>';
+
+    const safeName = (proj||'').replace(/[^֐-׿a-zA-Z0-9]/g,'_');
+    const safeDate = (state.visitDate||'').replace(/-/g,'');
+    downloadAsDoc(content, 'דוח_ביקור_' + safeName + '_' + safeDate + '.doc');
+    showToast('✓ הדוח הורד כקובץ Word');
+  } catch(err) {
+    showToast('⚠ שגיאה: ' + err.message);
+    console.error('Report error:', err);
+  }
+}
+
+// ─── Historical report ───────────────────────────────────
+let _rtype = 'month';
+
+function setRtype(type, btn) {
+  _rtype = type;
+  document.querySelectorAll('.rtype-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const mEl=document.getElementById('rptMonth'), wEl=document.getElementById('rptWeek'), yEl=document.getElementById('rptYear');
+  const lbl=document.getElementById('rptDateLbl');
+  mEl.style.display=type==='month'?'':'none';
+  wEl.style.display=type==='week'?'':'none';
+  yEl.style.display=type==='year'?'':'none';
+  document.getElementById('rptDateWrap').style.display=type==='all'?'none':'';
+  if(lbl) lbl.textContent=type==='month'?'חודש':type==='week'?'שבוע':'שנה';
+  updateRptSummary();
+}
+
+function populateReportModal() {
+  const sel=document.getElementById('rptProject');
+  if(!sel) return;
+  sel.innerHTML='<option value="">כל הפרויקטים</option>';
+  [...new Set(visitHistory.map(v=>v.project))].sort().forEach(p=>{
+    const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o);
+  });
+  if(state.project) sel.value=state.project;
+  document.getElementById('rptMonth').value=new Date().toISOString().slice(0,7);
+  document.getElementById('rptYear').value=new Date().getFullYear();
+  updateRptSummary();
+}
+
+function filterVisits(proj, type, val) {
+  return visitHistory.filter(v=>{
+    if(proj&&v.project!==proj) return false;
+    if(!val||type==='all') return true;
+    const d=v.visitDate||'';
+    if(type==='month') return d.startsWith(val);
+    if(type==='year') return d.startsWith(String(val));
+    if(type==='week'){
+      const [yr,wk]=val.split('-W').map(Number);
+      const vd=new Date(d);
+      const jan4=new Date(yr,0,4);
+      const sow=new Date(jan4); sow.setDate(jan4.getDate()-((jan4.getDay()+6)%7));
+      const sowk=new Date(sow); sowk.setDate(sow.getDate()+(wk-1)*7);
+      const eowk=new Date(sowk); eowk.setDate(sowk.getDate()+7);
+      return vd>=sowk&&vd<eowk;
+    }
+    return true;
+  });
+}
+
+function updateRptSummary() {
+  const proj=document.getElementById('rptProject')?.value||'';
+  const val=_rtype==='month'?document.getElementById('rptMonth')?.value:
+            _rtype==='week'?document.getElementById('rptWeek')?.value:
+            _rtype==='year'?document.getElementById('rptYear')?.value:'';
+  const n=filterVisits(proj,_rtype,val).length;
+  const el=document.getElementById('rptSummary');
+  if(el) el.textContent=visitHistory.length?n?'נמצאו '+n+' ביקורים':'אין ביקורים לתקופה זו':'אין ביקורים שמורים';
+}
+
+function generateHistoricalReport() {
+  const proj=document.getElementById('rptProject')?.value||'';
+  const val=_rtype==='month'?document.getElementById('rptMonth')?.value:
+            _rtype==='week'?document.getElementById('rptWeek')?.value:
+            _rtype==='year'?document.getElementById('rptYear')?.value:'';
+  const visits=filterVisits(proj,_rtype,val).sort((a,b)=>a.visitDate.localeCompare(b.visitDate));
+  if(!visits.length){showToast('אין ביקורים לתקופה הנבחרת');return;}
+  const projLabel=proj||'כל הפרויקטים';
+  const allIssues=visits.flatMap(v=>(v.issues||[]).map(i=>({...i,visitDate:v.visitDate})));
+  const highN=allIssues.filter(i=>i.severity==='גבוהה').length;
+  const lastV=visits[visits.length-1];
+  const lastPct=visits.filter(v=>v.progressPct!=null).slice(-1)[0]?.progressPct??null;
+  const pbar=lastPct>=75?'#27ae60':lastPct>=40?'#e65100':'#1F4E79';
+
+  const stageRows=Object.entries(lastV.stages||{}).filter(([,v])=>v&&v!=='na'&&v!=='').map(([s,sv])=>{
+    const icon=sv==='done'?'✅':sv==='finished'?'🏁':sv==='prog'?'🔄':sv==='notyet'?'⏳':'—';
+    const lbl=sv==='done'?'בוצע':sv==='finished'?'הסתיים':sv==='prog'?'בביצוע':'טרם החל';
+    const note=(lastV.stageNotes?.[s]||'');
+    return `<tr><td>${s}</td><td style="text-align:center">${icon}</td><td>${lbl}</td><td style="font-size:10pt;color:#555">${note}</td></tr>`;
+  }).join('');
+
+  const visitRows=visits.map(v=>{
+    const pc=v.progressPct; const col=pc>=75?'#375623':pc>=40?'#e65100':'#1F4E79';
+    return `<tr><td><b>${fmt(v.visitDate)}</b>${v.visitTime?'<br><small>'+v.visitTime+'</small>':''}</td><td>${v.siteManager||'—'}</td><td style="font-weight:700;color:${col};text-align:center">${pc!=null?pc+'%':'—'}</td><td>${v.issues?.length||0}</td><td>${v.photoCount||0}</td></tr>`;
+  }).join('');
+
+  const issueRows=allIssues.filter(i=>i.desc).map((iss,i)=>{
+    const sc={גבוהה:'#C00',בינונית:'#E26B0A',נמוכה:'#375623'};
+    return `<tr style="${iss.severity==='גבוהה'?'background:#FFF8F8':''}"><td>${i+1}</td><td>${fmt(iss.visitDate)}</td><td style="color:${sc[iss.severity]||'#333'};font-weight:700">${iss.severity||'—'}</td><td>${(iss.desc||'').replace(/</g,'&lt;')}</td><td>${(iss.action||'').replace(/</g,'&lt;')}</td><td>${iss.date?fmt(iss.date):'—'}</td></tr>`;
+  }).join('');
+
+  // Photo gallery from stagePhotoLinks
+  const photosGallery = cats().flatMap(c=>(c.stages||[]).filter(s=>{
+    return visits.some(v=>(v.stagePhotoLinks?.[s]||[]).length>0);
+  }).map(s=>{
+    const urls=[...new Set(visits.flatMap(v=>v.stagePhotoLinks?.[s]||[]))];
+    const thumbs=urls.map(u=>`<img src="${u}" style="width:150px;height:100px;object-fit:cover;border-radius:5px;border:1px solid #ccc;margin:3px" onerror="this.style.display='none'">`).join('');
+    return `<div style="margin-bottom:12px"><b style="color:#1F4E79">${s}</b><div style="margin-top:5px">${thumbs}</div></div>`;
+  })).join('');
+
+  const CSS2=`@page{size:A4;margin:18mm 14mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#222;direction:rtl;background:#fff}
+.hdr{background:linear-gradient(135deg,#1F4E79,#2E75B6);color:#fff;padding:20px 24px;border-radius:8px;margin-bottom:16px}
+.hdr h1{font-size:16pt;margin-bottom:4px}.hdr p{font-size:10pt;opacity:.9;margin-top:3px}
+.pbar{background:rgba(255,255,255,.25);border-radius:5px;height:9px;margin-top:10px;overflow:hidden}.pbar-f{height:100%;background:${pbar};border-radius:5px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.card{border:1.5px solid #D6E4F0;border-radius:8px;padding:10px;text-align:center}.card .n{font-size:20pt;font-weight:700;color:#1F4E79}.card .l{font-size:9pt;color:#666;margin-top:2px}.card.w .n{color:#C00}.card.w{border-color:#F4C3B2}
+h2{font-size:12pt;color:#1F4E79;border-bottom:2px solid #1F4E79;padding-bottom:3px;margin:14px 0 7px}
+table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10.5pt}th{background:#1F4E79;color:#fff;padding:7px 10px;text-align:right;font-weight:700}td{padding:6px 10px;border-bottom:1px solid #eee;vertical-align:top}tr:nth-child(even) td{background:#F5F8FC}
+.footer{margin-top:18px;padding-top:8px;border-top:1px solid #ddd;font-size:9pt;color:#999;display:flex;justify-content:space-between}
+.btn{display:block;width:190px;margin:0 auto 16px;padding:11px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:12pt;cursor:pointer;font-family:inherit;text-align:center}
+@media print{.btn{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}`;
+
+  const html2=`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דוח – ${projLabel}</title><style>${CSS2}</style></head><body>
+<button class="btn" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
+<div class="hdr"><h1>📊 דוח פיקוח – ${projLabel}</h1><p>📅 ${fmt(visits[0].visitDate)} – ${fmt(visits[visits.length-1].visitDate)} | ${visits.length} ביקורים</p>
+${lastPct!==null?`<div class="pbar"><div class="pbar-f" style="width:${lastPct}%"></div></div><p style="margin-top:6px;font-size:10pt">📊 התקדמות אחרונה: <b>${lastPct}%</b></p>`:''}</div>
+<div class="cards">
+  <div class="card"><div class="n">${visits.length}</div><div class="l">ביקורים</div></div>
+  <div class="card"><div class="n">${allIssues.length}</div><div class="l">ממצאים</div></div>
+  <div class="card${highN>0?' w':''}"><div class="n">${highN}</div><div class="l">דחופים</div></div>
+  <div class="card"><div class="n">${visits.reduce((s,v)=>s+(v.photoCount||0),0)}</div><div class="l">תמונות</div></div>
+</div>
+<h2>סיכום ביקורים</h2><table><thead><tr><th>תאריך</th><th>מנהל עבודה</th><th>התקדמות</th><th>ממצאים</th><th>תמונות</th></tr></thead><tbody>${visitRows}</tbody></table>
+${stageRows?`<h2>שלבי בנייה (עדכני)</h2><table><thead><tr><th>שלב</th><th>סטטוס</th><th>פירוט</th><th>הערה</th></tr></thead><tbody>${stageRows}</tbody></table>`:''}
+${photosGallery?`<h2>📷 תמונות מהפרויקט</h2><div>${photosGallery}</div>`:''}
+${issueRows?`<h2>ממצאים</h2><table><thead><tr><th>#</th><th>תאריך</th><th>חומרה</th><th>תיאור</th><th>פעולה</th><th>יעד</th></tr></thead><tbody>${issueRows}</tbody></table>`:''}
+<div class="footer"><span>הופק: ${new Date().toLocaleDateString('he-IL')}</span><span>פיקוח בנייה – תמ"א 38</span></div>
+<button class="btn" onclick="window.print()" style="margin-top:16px">🖨️ הדפס / שמור PDF</button>
+</body></html>`;
+
+  closeModal('reportModal');
+  const safeProjH = (projLabel||'').replace(/[^\u0590-\u05FF\w]/g,'_');
+  downloadAsDoc(html2, 'דוח_פיקוח_' + safeProjH + '.doc');
+  showToast('✓ הדוח הורד כקובץ Word');
+}
+
+// ═══════════════════════════════════════════════════════════
+// SHARING
+// ═══════════════════════════════════════════════════════════
+function buildShareText() {
+  const proj=state.project||'פרויקט'; const date=fmt(state.visitDate);
+  const pct=calcProgress(); const issues=(state.issues||[]).filter(i=>i.desc);
+  const plan=(state.planWeek1||[]);
+  let txt='📋 דוח ביקור – '+proj+'\n📅 '+date+(state.visitTime?' | ⏰ '+state.visitTime:'');
+  if(pct!==null) txt+='\n📊 התקדמות: '+pct+'%';
+  if(state.supervisorName) txt+='\n👷 '+state.supervisorName;
+  if(state.siteManager) txt+='\n🦺 '+state.siteManager;
+  const doneS=Object.entries(state.stages||{}).filter(([,v])=>v==='done').map(([n])=>'  ✅ '+n);
+  const progS=Object.entries(state.stages||{}).filter(([,v])=>v==='prog').map(([n])=>'  🔄 '+n);
+  if(doneS.length||progS.length) txt+='\n\n🏗️ שלבים:\n'+[...doneS,...progS].join('\n');
+  if(issues.length) txt+='\n\n⚠️ ממצאים ('+issues.length+'):\n'+issues.map(i=>'  • '+i.desc+(i.severity?' ['+i.severity+']':'')).join('\n');
+  if(plan.length) txt+='\n\n📋 תכנון:\n'+plan.map(p=>'  • '+p).join('\n');
+  if(state.generalNotes?.trim()) txt+='\n\n📝 הערות:\n'+state.generalNotes;
+  txt+='\n\n──────────────\nפיקוח בנייה – תמ"א 38';
+  return txt;
+}
+
+function shareWA() { window.open('https://wa.me/?text='+encodeURIComponent(buildShareText()),'_blank'); closeModal('shareModal'); }
+function shareMail() {
+  const s=encodeURIComponent('דוח ביקור – '+(state.project||'פרויקט')+' – '+fmt(state.visitDate));
+  const b=encodeURIComponent(buildShareText());
+  window.open('mailto:?subject='+s+'&body='+b);
+  closeModal('shareModal');
+}
+function shareCopy() {
+  if(navigator.clipboard) navigator.clipboard.writeText(buildShareText()).then(()=>showToast('✓ הועתק'));
+  else { const ta=document.createElement('textarea'); ta.value=buildShareText(); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast('✓ הועתק'); }
+  closeModal('shareModal');
+}
+function shareHtmlFile() { generateCurrentVisitReport(); closeModal('shareModal'); }
+
+// Colleague
+function exportVisitJSON() {
+  const pct=calcProgress();
+  const rec={...state, progressPct:pct, exportedAt:new Date().toISOString(), exportedBy:state.supervisorName||'עמית'};
+  const blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='ביקור_'+(state.project||'פרויקט')+'_'+(state.visitDate||'draft')+'.json'; a.click();
+  URL.revokeObjectURL(url); closeModal('shareModal');
+  showToast('📤 קובץ ביקור יוצא');
+}
+
+function importVisitJSON() {
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=async ev=>{
+      try {
+        const rec=JSON.parse(ev.target.result);
+        if(!rec.visitDate || !rec.project) throw new Error('קובץ לא תקין');
+        let pid = projectIdByName[rec.project];
+        if (!pid) {
+          const { data } = await sb.from('projects').insert({ name: rec.project }).select().single();
+          if (!data) throw new Error('לא ניתן ליצור פרויקט');
+          pid = data.id; settings.projects.push(rec.project); projectIdByName[rec.project] = pid;
+        }
+        const { data: visitRow, error } = await sb.from('visits').insert({
+          project_id: pid, visit_date: rec.visitDate, visit_time: rec.visitTime,
+          supervisor_name: rec.supervisorName, site_manager: rec.siteManager, project_type: rec.projectType,
+          stages: rec.stages||{}, stage_notes: rec.stageNotes||{}, issues: rec.issues||[],
+          plan_week1: rec.planWeek1||[], plan_week1_other: rec.planWeek1Other||'',
+          plan_week2: rec.planWeek2||[], plan_week2_other: rec.planWeek2Other||'',
+          next_visit_date: rec.nextVisitDate||null, overall_progress: rec.overallProgress||'',
+          general_notes: rec.generalNotes||'', progress_pct: rec.progressPct ?? null
+        }).select().single();
+        if (error) throw error;
+        rec.id = visitRow.id;
+        visitHistory.unshift(rec); cacheLocally(); renderProjectPills();
+        showToast('✓ ביקורו של '+(rec.exportedBy||'עמית')+' נוסף – '+fmt(rec.visitDate));
+      } catch(err){showToast('⚠️ שגיאה: '+err.message);}
+    };
+    rd.readAsText(f,'utf-8');
+  };
+  inp.click(); closeModal('shareModal');
+}
+
+function distributeApp() {
+  const src='<!DOCTYPE html>'+document.documentElement.outerHTML;
+  const blob=new Blob([src],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='טופס_ביקור_שבועי.html'; a.click();
+  URL.revokeObjectURL(url); closeModal('shareModal');
+  showToast('📥 האפליקציה מורידה');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════════════════════
+function doAdminLogin() {
+  const pin=document.getElementById('pinInput').value;
+  const saved=_teamPin||'1234';
+  if(pin===saved){
+    isAdmin=true;
+    document.getElementById('adminLoginDiv').style.display='none';
+    document.getElementById('adminActiveDiv').style.display='block';
+    document.getElementById('adminBadge').style.display='inline';
+    updateCatLocks(); updatePlanLock(); buildStages();
+    showToast('🔐 מצב אדמין פעיל');
+  } else {
+    document.getElementById('pinInput').value='';
+    document.getElementById('pinInput').style.border='2px solid red';
+    setTimeout(()=>document.getElementById('pinInput').style.border='',1500);
+    showToast('⚠️ PIN שגוי');
+  }
+}
+
+function refreshAdminUI() {
+  document.getElementById('adminLoginDiv').style.display=isAdmin?'none':'block';
+  document.getElementById('adminActiveDiv').style.display=isAdmin?'block':'none';
+  document.getElementById('pinInput').value='';
+  const btn=document.getElementById('lockOverrideBtn');
+  if(btn) btn.textContent='🔓 ' + (lockOverride ? 'הפעל נעילת שלבים (כרגע: כבוי)' : 'השבת נעילת שלבים (כרגע: פעיל)');
+}
+
+function toggleLockOverride() {
+  lockOverride=!lockOverride;
+  updateCatLocks(); updatePlanLock(); buildStages();
+  refreshAdminUI();
+  showToast(lockOverride?'🔓 כל השלבים פתוחים':'🔒 נעילה הופעלה מחדש');
+}
+
+async function changePIN() {
+  const p=document.getElementById('newPinInput').value.trim();
+  if(p.length<4){showToast('PIN חייב להיות לפחות 4 ספרות');return;}
+  setSyncStatus('syncing');
+  const { error } = await sb.from('app_settings').update({ pin: p }).eq('id', 1);
+  setSyncStatus(error ? 'error' : 'ok');
+  if (error) { showToast('⚠️ שגיאה בעדכון PIN'); return; }
+  _teamPin = p;
+  document.getElementById('newPinInput').value='';
+  showToast('✓ PIN עודכן לכל הצוות');
+}
+
+function exitAdmin() {
+  isAdmin=false; lockOverride=false;
+  document.getElementById('adminBadge').style.display='none';
+  updateCatLocks(); updatePlanLock(); buildStages();
+  showToast('🔒 יצאת ממצב אדמין');
+}
+
+function exportBackup() {
+  const data={settings,visitHistory,projectDrafts,projectLastStates,exportDate:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='pikuach_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  URL.revokeObjectURL(url); showToast('💾 גיבוי יוצא');
+}
+
+function importBackup() {
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=async ev=>{
+      try {
+        const d=JSON.parse(ev.target.result);
+        if (!confirm('הנתונים בקובץ ישולבו עם נתוני הצוות הקיימים בשרת (פרויקטים וביקורים חדשים בלבד יתווספו, שום דבר לא יימחק). להמשיך?')) return;
+        showToast('⏳ משחזר...');
+        for (const name of (d.settings?.projects || [])) {
+          if (!settings.projects.includes(name)) {
+            const { data } = await sb.from('projects').insert({
+              name,
+              description: d.settings?.projectDescriptions?.[name] || '',
+              custom_stages: d.settings?.projectCustomStages?.[name] || []
+            }).select().single();
+            if (data) { settings.projects.push(name); projectIdByName[name] = data.id; }
+          }
+        }
+        for (const v of (d.visitHistory || [])) {
+          const pid = projectIdByName[v.project];
+          if (!pid) continue;
+          const exists = visitHistory.some(x => x.project===v.project && x.visitDate===v.visitDate && x.visitTime===v.visitTime);
+          if (exists) continue;
+          await sb.from('visits').insert({
+            project_id: pid, visit_date: v.visitDate, visit_time: v.visitTime,
+            supervisor_name: v.supervisorName, site_manager: v.siteManager, project_type: v.projectType,
+            stages: v.stages||{}, stage_notes: v.stageNotes||{}, issues: v.issues||[],
+            plan_week1: v.planWeek1||[], plan_week1_other: v.planWeek1Other||'',
+            plan_week2: v.planWeek2||[], plan_week2_other: v.planWeek2Other||'',
+            next_visit_date: v.nextVisitDate||null, overall_progress: v.overallProgress||'',
+            general_notes: v.generalNotes||'', progress_pct: v.progressPct ?? null
+          });
+        }
+        await pullDraftsAndVisits();
+        cacheLocally();
+        renderProjectPills(); renderArchive();
+        showToast('✓ הנתונים שולבו');
+      } catch(err){ console.error(err); showToast('⚠️ שגיאה בייבוא'); }
+    };
+    rd.readAsText(f,'utf-8');
+  };
+  inp.click();
+}
+
+async function resetAllData() {
+  if (prompt('⚠️ פעולה זו תמחק לצמיתות את כל הפרויקטים, הביקורים והתמונות של כל הצוות מהשרת. הקלד "מחק הכל" לאישור:') !== 'מחק הכל') return;
+  setSyncStatus('syncing');
+  const NIL = '00000000-0000-0000-0000-000000000000';
+  await sb.from('visit_photos').delete().neq('id', NIL);
+  await sb.from('visits').delete().neq('id', NIL);
+  await sb.from('drafts').delete().neq('project_id', NIL);
+  await sb.from('projects').delete().neq('id', NIL);
+  localStorage.removeItem('pikuach_cache');
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+async function sendMagicLink() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) return;
+  const statusEl = document.getElementById('authStatus');
+  statusEl.textContent = '⏳ שולח...';
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: location.href.split('#')[0].split('?')[0] }
+  });
+  if (error) { statusEl.textContent = '⚠️ ' + error.message; return; }
+  document.getElementById('authEmailStep').style.display = 'none';
+  document.getElementById('authSentStep').style.display = 'block';
+  statusEl.textContent = '';
+}
+
+async function doSignOut() {
+  if (!confirm('להתנתק?')) return;
+  await sb.auth.signOut();
+  location.reload();
+}
+
+async function boot() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    document.getElementById('authGate').classList.remove('hidden');
+    sb.auth.onAuthStateChange((event, s) => {
+      if (s) { document.getElementById('authGate').classList.add('hidden'); startApp(s); }
+    });
+    return;
+  }
+  document.getElementById('authGate').classList.add('hidden');
+  startApp(session);
+}
+
+async function startApp(session) {
+  currentUser = { id: session.user.id, email: session.user.email };
+  const badge = document.getElementById('userBadge');
+  if (badge) badge.textContent = '👤 ' + (currentUser.email || '').split('@')[0];
+  await init();
+  subscribeRealtime();
+}
+
+// ═══════════════════════════════════════════════════════════
+// REALTIME (team-shared visibility across devices)
+// ═══════════════════════════════════════════════════════════
+let _realtimeChannel = null;
+
+function idToProjectName(id) {
+  return Object.entries(projectIdByName).find(([, v]) => v === id)?.[0];
+}
+
+function subscribeRealtime() {
+  if (_realtimeChannel) sb.removeChannel(_realtimeChannel);
+  _realtimeChannel = sb.channel('team-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleProjectsChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'visits' }, handleVisitsChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'drafts' }, handleDraftsChange)
+    .subscribe();
+}
+
+async function handleProjectsChange() {
+  await pullProjects();
+  renderProjectPills();
+  if (document.getElementById('projectsModal')?.classList.contains('open')) renderProjectsModal();
+}
+
+async function handleDraftsChange(payload) {
+  const row = payload.new || payload.old;
+  const name = idToProjectName(row.project_id);
+  if (!name || name === state.project) return; // never clobber what's actively being edited here
+  if (payload.eventType === 'DELETE') { delete projectDrafts[name]; return; }
+  const s = draftRowToState(row);
+  const existing = projectDrafts[name] || {};
+  s.stagePhotoLinks = existing.stagePhotoLinks || {};
+  s.issuePhotoLinks = existing.issuePhotoLinks || {};
+  s.generalPhotos = existing.generalPhotos || [];
+  projectDrafts[name] = s;
+  cacheLocally();
+}
+
+async function handleVisitsChange(payload) {
+  if (payload.eventType === 'DELETE') {
+    visitHistory = visitHistory.filter(v => v.id !== payload.old.id);
+  } else {
+    if (visitHistory.some(v => v.id === payload.new.id)) return; // already have it (our own insert)
+    const row = payload.new;
+    const name = idToProjectName(row.project_id) || '—';
+    const { data: photoRows } = await sb.from('visit_photos').select('*').eq('visit_id', row.id);
+    const stage = {}, issue = {}, general = [];
+    (photoRows || []).forEach(ph => {
+      const url = photoPublicUrl(ph.storage_path);
+      if (ph.kind === 'stage') { (stage[ph.ref_key] ||= []).push(url); }
+      else if (ph.kind === 'issue') { (issue[ph.ref_key] ||= []).push(url); }
+      else general.push({ desc: ph.description || '' });
+    });
+    visitHistory.unshift({
+      id: row.id, project: name, visitDate: row.visit_date, visitTime: row.visit_time,
+      supervisorName: row.supervisor_name, siteManager: row.site_manager, projectType: row.project_type,
+      stages: row.stages || {}, stageNotes: row.stage_notes || {}, issues: row.issues || [],
+      stagePhotoLinks: stage, issuePhotoLinks: issue, generalPhotosDescs: general,
+      planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '',
+      planWeek2: row.plan_week2 || [], planWeek2Other: row.plan_week2_other || '',
+      nextVisitDate: row.next_visit_date, overallProgress: row.overall_progress || '',
+      generalNotes: row.general_notes || '',
+      photoCount: general.length + Object.values(stage).flat().length + Object.values(issue).flat().length,
+      progressPct: row.progress_pct, exportedBy: row.supervisor_name
+    });
+    if (name !== '—') projectLastStates[name] = { stages: { ...row.stages }, stageNotes: { ...row.stage_notes } };
+  }
+  cacheLocally();
+  if (document.getElementById('archiveModal')?.classList.contains('open')) renderArchive();
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+async function init() {
+  await loadAll();
+
+  // Stamp current date/time
+  const now = new Date();
+  state.visitDate = now.toISOString().slice(0,10);
+  state.visitTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('visitDate').value = state.visitDate;
+  document.getElementById('visitTime').value = state.visitTime;
+
+  // If there's a saved project, restore it
+  if (settings.projects.length) {
+    const lastProj = localStorage.getItem('pikuach_lastProject');
+    const proj = settings.projects.includes(lastProj) ? lastProj : settings.projects[0];
+    if (proj) {
+      state.project = proj;
+      const draft = projectDrafts[proj];
+      if (draft) Object.assign(state, draft);
+      // Always overwrite date/time with now
+      state.visitDate = now.toISOString().slice(0,10);
+      state.visitTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+      const briefEl = document.getElementById('projectBriefText');
+      if (briefEl) briefEl.value = (settings.projectDescriptions || {})[proj] || '';
+    }
+  }
+
+  renderProjectPills();
+  buildStages();
+  buildPlanSection();
+  renderIssues();
+  updateCatLocks();
+  updatePlanLock();
+
+  // Sync form fields from state
+  ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planWeek2Other',
+   'nextVisitDate','generalNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = state[id] || '';
+  });
+  // Re-stamp date/time in DOM (overrides whatever draft had)
+  document.getElementById('visitDate').value = state.visitDate;
+  document.getElementById('visitTime').value = state.visitTime;
+
+  updateProgressBar();
+  renderArchive();
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+
+  // Track last project
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && state.project) localStorage.setItem('pikuach_lastProject', state.project);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>
