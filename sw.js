@@ -1,5 +1,5 @@
 // Service Worker – פיקוח בנייה תמ"א 38
-const CACHE_NAME = 'pikuach-v3';
+const CACHE_NAME = 'pikuach-v4';
 const PRECACHE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -20,6 +20,19 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   // Skip Supabase API/auth/storage calls — always go to network
   if (e.request.url.includes('supabase.co')) return;
+
+  // The app shell (page navigations + index.html) is network-first so a new
+  // deploy is picked up immediately; falls back to cache only when offline.
+  if (e.request.mode === 'navigate' || e.request.url.endsWith('index.html')) {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        return resp;
+      }).catch(() => caches.match(e.request).then(c => c || caches.match('./index.html')))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(e.request).then(cached => {

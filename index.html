@@ -2189,7 +2189,40 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleProjectsChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'visits' }, handleVisitsChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'drafts' }, handleDraftsChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'visit_photos' }, handlePhotosChange)
     .subscribe();
+}
+
+// Live-update photos for the currently open project (draft-phase only —
+// photos on already-archived visits don't need to update live).
+async function handlePhotosChange(payload) {
+  const row = payload.new || payload.old;
+  if (row.visit_id) return; // belongs to an archived visit, not the active draft
+  const name = idToProjectName(row.project_id);
+  if (!name || name !== state.project) return;
+
+  if (payload.eventType === 'INSERT') {
+    if (row.created_by === currentUser?.id) return; // already handled by our own upload flow
+    const entry = { id: row.id, url: photoPublicUrl(row.storage_path), desc: row.description || '', path: row.storage_path };
+    if (row.kind === 'stage') {
+      (state.stagePhotoLinks[row.ref_key] ||= []).push(entry);
+      buildStages();
+    } else if (row.kind === 'issue') {
+      (state.issuePhotoLinks[row.ref_key] ||= []).push(entry);
+      renderIssues();
+    } else {
+      (state.generalPhotos ||= []).push(entry);
+      addGeneralPhotoToStrip(entry.id, entry.url, entry.desc);
+    }
+    cacheLocally();
+  } else if (payload.eventType === 'DELETE') {
+    if (state.stagePhotoLinks[row.ref_key]) state.stagePhotoLinks[row.ref_key] = state.stagePhotoLinks[row.ref_key].filter(p => p.id !== row.id);
+    if (state.issuePhotoLinks[row.ref_key]) state.issuePhotoLinks[row.ref_key] = state.issuePhotoLinks[row.ref_key].filter(p => p.id !== row.id);
+    state.generalPhotos = (state.generalPhotos || []).filter(p => p.id !== row.id);
+    buildStages(); renderIssues();
+    document.querySelector('.gen-photo-item[data-id="' + row.id + '"]')?.remove();
+    cacheLocally();
+  }
 }
 
 async function handleProjectsChange() {
@@ -2280,6 +2313,13 @@ async function init() {
   renderIssues();
   updateCatLocks();
   updatePlanLock();
+
+  // Rebuild general photos strip (buildStages/renderIssues cover stage/issue photos already)
+  const gArea = document.getElementById('genPhotosArea');
+  if (gArea) {
+    gArea.innerHTML = '';
+    (state.generalPhotos || []).forEach(gp => { if (gp && gp.url) addGeneralPhotoToStrip(gp.id, gp.url, gp.desc); });
+  }
 
   // Sync form fields from state
   ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planWeek2Other',

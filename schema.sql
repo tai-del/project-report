@@ -157,9 +157,18 @@ create policy "team all app_settings" on public.app_settings for all to authenti
 -- ═══════════════════════════════════════════════════════════
 -- Realtime — enable change broadcasts for live team sync
 -- ═══════════════════════════════════════════════════════════
-alter publication supabase_realtime add table public.projects;
-alter publication supabase_realtime add table public.drafts;
-alter publication supabase_realtime add table public.visits;
+do $$
+declare t text;
+begin
+  foreach t in array array['projects','drafts','visits','visit_photos'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
 
 -- ═══════════════════════════════════════════════════════════
 -- Storage bucket for photos
