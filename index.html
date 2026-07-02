@@ -1659,6 +1659,19 @@ function downloadAsDoc(contentHtml, filename) {
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 3000);
 }
 
+async function urlToDataUrl(url) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => resolve(url);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) { return url; }
+}
+
 async function generateCurrentVisitReport() {
   closeModal('reportModal');
   showToast('⧗ מכין דוח...');
@@ -1667,17 +1680,18 @@ async function generateCurrentVisitReport() {
     const date = fmt(state.visitDate);
     const pct  = calcProgress();
 
-    // Photos are already uploaded to Supabase Storage on capture — link directly
+    // Word doesn't reliably fetch remote <img> URLs when opening these HTML-as-.doc
+    // files, so embed the already-uploaded photos as inline data URIs instead.
     const compStage = {};
     for (const [s, pics] of Object.entries(state.stagePhotoLinks || {})) {
-      if (pics && pics.length) compStage[s] = pics.map(p => p.url);
+      if (pics && pics.length) compStage[s] = await Promise.all(pics.map(p => urlToDataUrl(p.url)));
     }
     const compIssue = {};
     for (const iss of (state.issues || [])) {
       const pics = state.issuePhotoLinks[iss.id] || [];
-      if (pics.length) compIssue[iss.id] = pics.map(p => p.url);
+      if (pics.length) compIssue[iss.id] = await Promise.all(pics.map(p => urlToDataUrl(p.url)));
     }
-    const compGeneral = (state.generalPhotos || []).filter(Boolean).map(gp => ({src: gp.url, desc: gp.desc || ''}));
+    const compGeneral = await Promise.all((state.generalPhotos || []).filter(Boolean).map(async gp => ({src: await urlToDataUrl(gp.url), desc: gp.desc || ''})));
 
     // Stage table rows
     const stageRows = cats().flatMap(cat => (cat.stages || [])
@@ -1847,13 +1861,14 @@ function updateRptSummary() {
   if(el) el.textContent=visitHistory.length?n?'נמצאו '+n+' ביקורים':'אין ביקורים לתקופה זו':'אין ביקורים שמורים';
 }
 
-function generateHistoricalReport() {
+async function generateHistoricalReport() {
   const proj=document.getElementById('rptProject')?.value||'';
   const val=_rtype==='month'?document.getElementById('rptMonth')?.value:
             _rtype==='week'?document.getElementById('rptWeek')?.value:
             _rtype==='year'?document.getElementById('rptYear')?.value:'';
   const visits=filterVisits(proj,_rtype,val).sort((a,b)=>a.visitDate.localeCompare(b.visitDate));
   if(!visits.length){showToast('אין ביקורים לתקופה הנבחרת');return;}
+  showToast('⧗ מכין דוח...');
   const projLabel=proj||'כל הפרויקטים';
   const allIssues=visits.flatMap(v=>(v.issues||[]).map(i=>({...i,visitDate:v.visitDate})));
   const highN=allIssues.filter(i=>i.severity==='גבוהה').length;
@@ -1878,14 +1893,17 @@ function generateHistoricalReport() {
     return `<tr style="${iss.severity==='גבוהה'?'background:#FFF8F8':''}"><td>${i+1}</td><td>${fmt(iss.visitDate)}</td><td style="color:${sc[iss.severity]||'#333'};font-weight:700">${iss.severity||'—'}</td><td>${(iss.desc||'').replace(/</g,'&lt;')}</td><td>${(iss.action||'').replace(/</g,'&lt;')}</td><td>${iss.date?fmt(iss.date):'—'}</td></tr>`;
   }).join('');
 
-  // Photo gallery from stagePhotoLinks
-  const photosGallery = cats().flatMap(c=>(c.stages||[]).filter(s=>{
-    return visits.some(v=>(v.stagePhotoLinks?.[s]||[]).length>0);
-  }).map(s=>{
+  // Photo gallery from stagePhotoLinks — embed as data URIs, Word doesn't
+  // reliably fetch remote <img> URLs when opening these HTML-as-.doc files.
+  const stagesWithPhotos = cats().flatMap(c=>(c.stages||[])).filter(s=>visits.some(v=>(v.stagePhotoLinks?.[s]||[]).length>0));
+  const urlToData = {};
+  await Promise.all(stagesWithPhotos.flatMap(s => [...new Set(visits.flatMap(v=>v.stagePhotoLinks?.[s]||[]))])
+    .map(async u => { urlToData[u] = await urlToDataUrl(u); }));
+  const photosGallery = stagesWithPhotos.map(s=>{
     const urls=[...new Set(visits.flatMap(v=>v.stagePhotoLinks?.[s]||[]))];
-    const thumbs=urls.map(u=>`<img src="${u}" style="width:150px;height:100px;object-fit:cover;border-radius:5px;border:1px solid #ccc;margin:3px" onerror="this.style.display='none'">`).join('');
+    const thumbs=urls.map(u=>`<img src="${urlToData[u]||u}" style="width:150px;height:100px;object-fit:cover;border-radius:5px;border:1px solid #ccc;margin:3px" onerror="this.style.display='none'">`).join('');
     return `<div style="margin-bottom:12px"><b style="color:#1F4E79">${s}</b><div style="margin-top:5px">${thumbs}</div></div>`;
-  })).join('');
+  }).join('');
 
   const CSS2=`@page{size:A4;margin:18mm 14mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#222;direction:rtl;background:#fff}
 .hdr{background:linear-gradient(135deg,#1F4E79,#2E75B6);color:#fff;padding:20px 24px;border-radius:8px;margin-bottom:16px}
