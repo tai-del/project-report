@@ -179,3 +179,17 @@ create policy "team upload photos" on storage.objects
 drop policy if exists "team delete photos" on storage.objects;
 create policy "team delete photos" on storage.objects
   for delete to authenticated using (bucket_id = 'photos');
+
+-- ═══════════════════════════════════════════════════════════
+-- Storage bucket for hosting the app itself (index.html, sw.js,
+-- manifest.json) — publicly readable, no write policy on purpose:
+-- only the project owner (via the Studio dashboard, which bypasses
+-- RLS) uploads/updates these files. No app user or anon key can write here.
+-- ═══════════════════════════════════════════════════════════
+insert into storage.buckets (id, name, public)
+values ('site', 'site', true)
+on conflict (id) do nothing;
+
+drop policy if exists "public read site" on storage.objects;
+create policy "public read site" on storage.objects
+  for select using (bucket_id = 'site');
