@@ -909,6 +909,7 @@ function buildStages() {
   cats().forEach((cat, ci) => {
     const unlocked = isCatUnlocked(ci);
     const stages = cat.stages || [];
+    const hiddenInCat = stages.filter(s => state._hiddenStages?.[s]);
     const done = stages.filter(s=>state.stages[s]==='done'||state.stages[s]==='finished').length;
     const evaled = stages.filter(s=>state.stages[s]&&state.stages[s]!=='na').length;
     const statTxt = evaled ? done+'/'+evaled+' ✓' : '';
@@ -927,6 +928,14 @@ function buildStages() {
       </div>`;
     }
 
+    let hiddenBanner = '';
+    if (hiddenInCat.length) {
+      hiddenBanner = `<div class="lock-banner" style="display:flex">
+        👁️‍🗨️ ${hiddenInCat.length} שלבים מוסתרים בקטגוריה זו
+        <button class="cat-unlock-btn" style="margin-right:auto" onclick="unhideAllInCat(${ci})">↩️ שחזר שלבים</button>
+      </div>`;
+    }
+
     wrap.innerHTML = `
       <div class="cat-hdr">
         <span>${cat.name}</span>
@@ -934,6 +943,7 @@ function buildStages() {
         <button class="cat-unlock-btn" onclick="addStageToCat(${ci})">+ שלב</button>
       </div>
       ${lockBanner}
+      ${hiddenBanner}
       <div class="cat-body" id="catBody_${ci}"></div>`;
     body.appendChild(wrap);
 
@@ -1039,6 +1049,16 @@ function hideStage(sname, ci) {
   state._hiddenStages[sname] = true;
   autoSave();
   buildStages();
+}
+
+function unhideAllInCat(ci) {
+  const cat = cats()[ci];
+  if (!cat || !state._hiddenStages) return;
+  (cat.stages || []).forEach(s => delete state._hiddenStages[s]);
+  autoSave();
+  buildStages();
+  updateCatLocks();
+  showToast('↩️ השלבים שוחזרו');
 }
 
 // ═══════════════════════════════════════════════════════════
