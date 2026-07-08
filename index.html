@@ -378,7 +378,11 @@ textarea{resize:vertical;min-height:70px}
 <div class="modal-bg" id="reportModal">
   <div class="modal">
     <div class="modal-title">📊 יצירת דוח</div>
-    <button class="gen-btn" onclick="generateCurrentVisitReport()">📋 דוח ביקור נוכחי</button>
+    <div class="field-group">
+      <label class="field-lbl">פרויקט לדוח ביקור נוכחי</label>
+      <select id="curVisitProject"></select>
+    </div>
+    <button class="gen-btn" onclick="generateCurrentVisitReport(document.getElementById('curVisitProject').value)">📋 דוח ביקור נוכחי</button>
     <div style="display:flex;align-items:center;gap:8px;margin:8px 0 12px;color:#aaa;font-size:11px">
       <div style="flex:1;height:1px;background:#ddd"></div><span>דוח היסטורי מארכיון</span><div style="flex:1;height:1px;background:#ddd"></div>
     </div>
@@ -718,10 +722,13 @@ function fmt(d) {
   return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d;
 }
 
-function calcProgress() {
-  const vals = Object.values(state.stages).filter(v => v==='done'||v==='finished'||v==='prog'||v==='notyet');
+function calcProgressForStages(stages) {
+  const vals = Object.values(stages||{}).filter(v => v==='done'||v==='finished'||v==='prog'||v==='notyet');
   if (!vals.length) return null;
   return Math.round(vals.reduce((s,v) => s+((v==='done'||v==='finished')?100:v==='prog'?50:0), 0) / vals.length);
+}
+function calcProgress() {
+  return calcProgressForStages(state.stages);
 }
 
 function updateProgressBar() {
@@ -885,9 +892,9 @@ const OPTS = [
   {key:'finished', lbl:'🏁 הסתיים',   cls:'finished'}
 ];
 
-function cats() {
+function cats(projectName) {
   const base = JSON.parse(JSON.stringify(settings.stageCategories || DEFAULT_CATS));
-  const custom = (settings.projectCustomStages || {})[state.project] || [];
+  const custom = (settings.projectCustomStages || {})[projectName ?? state.project] || [];
   custom.forEach(({cat, name}) => {
     if (base[cat] && !base[cat].stages.includes(name)) base[cat].stages.push(name);
   });
@@ -1641,6 +1648,72 @@ function renderArchive() {
 // ═══════════════════════════════════════════════════════════
 // REPORTS
 // ═══════════════════════════════════════════════════════════
+const REPORT_CSS = `
+@page{size:A4;margin:16mm 14mm}
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#222;direction:rtl;background:#fff;margin:0;padding:0}
+.hdr{background:linear-gradient(135deg,#1F4E79,#2E75B6);color:#fff;padding:22px 26px;border-radius:10px;margin-bottom:16px}
+.hdr h1{font-size:17pt;margin:0 0 6px}
+.hdr .meta{font-size:10.5pt;opacity:.92;margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.pbar{background:rgba(255,255,255,.25);border-radius:5px;height:9px;margin-top:12px;overflow:hidden}
+.pbar-f{height:100%;border-radius:5px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.card{border:1.5px solid #D6E4F0;border-radius:8px;padding:10px;text-align:center}
+.card .n{font-size:19pt;font-weight:700;color:#1F4E79}
+.card .l{font-size:8.5pt;color:#666;margin-top:2px}
+.card.warn{border-color:#F4C3B2}
+.card.warn .n{color:#C00}
+h2{font-size:12.5pt;color:#1F4E79;border-bottom:2px solid #1F4E79;padding-bottom:4px;margin:18px 0 9px;page-break-after:avoid}
+table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10pt}
+th{background:#1F4E79;color:#fff;padding:7px 9px;text-align:right;font-weight:700}
+td{padding:6px 9px;border-bottom:1px solid #eee;vertical-align:top}
+tr:nth-child(even) td{background:#F7FAFD}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:9pt;font-weight:700;white-space:nowrap}
+.pill-done{background:#E8F5E9;color:#2e7d32}
+.pill-finished{background:#EDE7F6;color:#4527A0}
+.pill-prog{background:#FFF3E0;color:#e65100}
+.pill-notyet{background:#E3F2FD;color:#1565c0}
+.pill-na{background:#F0F0F0;color:#777}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.photo-grid figure{margin:0;break-inside:avoid;page-break-inside:avoid}
+.photo-grid img{width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid #ccc;display:block}
+.photo-grid figcaption{font-size:8.5pt;color:#555;margin-top:3px;text-align:center}
+.stage-block{margin-bottom:10px;page-break-inside:avoid}
+.stage-block .stage-hdr{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.stage-block .stage-hdr b{color:#1F4E79;font-size:10.5pt}
+.stage-block .note{font-size:9.5pt;color:#555;margin-top:4px}
+.issue-cd{border:1.5px solid #dde6ef;border-radius:9px;padding:12px;margin-bottom:10px;page-break-inside:avoid}
+.issue-cd.sev-high{border-right:4px solid #C00000;background:#FFF8F8}
+.issue-cd.sev-med{border-right:4px solid #E26B0A}
+.issue-cd.sev-low{border-right:4px solid #27ae60}
+.issue-cd .row{display:flex;gap:14px;font-size:9.5pt;color:#555;margin-top:6px;flex-wrap:wrap}
+.notes-box{background:#EBF3FB;border-right:3px solid #2E75B6;padding:12px;line-height:1.8;border-radius:4px}
+.plan-list{padding-right:18px;line-height:1.9}
+.footer{margin-top:22px;padding-top:8px;border-top:1px solid #ddd;font-size:9pt;color:#999;display:flex;justify-content:space-between}
+.print-btn{display:block;width:200px;margin:0 auto 16px;padding:11px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:12pt;cursor:pointer;font-family:inherit;text-align:center}
+.empty-note{color:#888}
+@media print{.print-btn{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+`;
+
+const PILL_INFO = {
+  done:     {cls:'pill-done',     icon:'✓', lbl:'בוצע'},
+  finished: {cls:'pill-finished', icon:'🏁', lbl:'הסתיים'},
+  prog:     {cls:'pill-prog',     icon:'◐', lbl:'בביצוע'},
+  notyet:   {cls:'pill-notyet',   icon:'○', lbl:'טרם החל'},
+  na:       {cls:'pill-na',       icon:'—', lbl:'לא רלוונטי'}
+};
+function statusPill(status) {
+  const p = PILL_INFO[status] || PILL_INFO.notyet;
+  return `<span class="pill ${p.cls}">${p.icon} ${p.lbl}</span>`;
+}
+function reportShell(title, bodyHtml) {
+  return `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${title}</title><style>${REPORT_CSS}</style></head><body>
+<button class="print-btn" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
+${bodyHtml}
+<button class="print-btn" style="margin-top:18px" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
+</body></html>`;
+}
+
 function openReportInBlob(html) {
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
@@ -1652,170 +1725,95 @@ function openReportInBlob(html) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-function downloadAsDoc(contentHtml, filename) {
-  const wordHtml = '\uFEFF<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
-    'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
-    'xmlns="http://www.w3.org/TR/REC-html40" dir="rtl">\n' +
-    '<head>\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n' +
-    '<meta name="ProgId" content="Word.Document">\n' +
-    '<style>\n' +
-    '@page {size:21.0cm 29.7cm;margin:2.0cm 2.0cm 2.0cm 2.0cm}\n' +
-    'body{font-family:Arial,sans-serif;font-size:11pt;direction:rtl;text-align:right;margin:0;padding:12pt}\n' +
-    'h1,h2,h3{font-family:Arial,sans-serif;direction:rtl}\n' +
-    'p{direction:rtl;text-align:right;margin-bottom:4pt}\n' +
-    'table{border-collapse:collapse;width:100%;direction:rtl}\n' +
-    'th,td{font-family:Arial,sans-serif;text-align:right;padding:5pt 7pt;border:1pt solid #ccc;vertical-align:top}\n' +
-    'th{background:#1F4E79;color:#fff;font-weight:bold}\n' +
-    'tr:nth-child(even) td{background:#F5F8FC}\n' +
-    'p,li{line-height:1.6}\n' +
-    'ul{padding-right:16pt}\n' +
-    '</style>\n</head>\n<body>\n' +
-    contentHtml + '\n</body></html>';
-  const blob = new Blob([wordHtml], {type:'application/msword;charset=utf-8'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename || 'דוח.doc';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 3000);
+function resolveReportSource(projectName) {
+  if (!projectName || projectName === state.project) return state;
+  return projectDrafts[projectName] || {
+    stages:{}, stageNotes:{}, issues:[], stagePhotoLinks:{}, issuePhotoLinks:{},
+    generalPhotos:[], planWeek1:[], nextVisitDate:'', generalNotes:'',
+    supervisorName:'', siteManager:'', visitDate:'', visitTime:''
+  };
 }
 
-async function urlToDataUrl(url) {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return await new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => resolve(url);
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) { return url; }
-}
-
-async function generateCurrentVisitReport() {
+async function generateCurrentVisitReport(projectName) {
   closeModal('reportModal');
+  const proj = projectName || state.project;
+  if (!proj) { showToast('⚠️ בחר פרויקט תחילה'); return; }
   showToast('⧗ מכין דוח...');
   try {
-    const proj = state.project || 'פרויקט לא מוגדר';
-    const date = fmt(state.visitDate);
-    const pct  = calcProgress();
+    const s = resolveReportSource(proj);
+    const date = fmt(s.visitDate);
+    const pct = calcProgressForStages(s.stages);
 
-    // Word doesn't reliably fetch remote <img> URLs when opening these HTML-as-.doc
-    // files, so embed the already-uploaded photos as inline data URIs instead.
-    const compStage = {};
-    for (const [s, pics] of Object.entries(state.stagePhotoLinks || {})) {
-      if (pics && pics.length) compStage[s] = await Promise.all(pics.map(p => urlToDataUrl(p.url)));
-    }
-    const compIssue = {};
-    for (const iss of (state.issues || [])) {
-      const pics = state.issuePhotoLinks[iss.id] || [];
-      if (pics.length) compIssue[iss.id] = await Promise.all(pics.map(p => urlToDataUrl(p.url)));
-    }
-    const compGeneral = await Promise.all((state.generalPhotos || []).filter(Boolean).map(async gp => ({src: await urlToDataUrl(gp.url), desc: gp.desc || ''})));
+    const stageBlocks = cats(proj).flatMap(cat => (cat.stages || [])
+      .filter(name => s.stages[name] && s.stages[name] !== 'na')
+      .map(name => ({cat: cat.name, name, status: s.stages[name], note: s.stageNotes?.[name] || '', pics: s.stagePhotoLinks?.[name] || []}))
+    );
 
-    // Stage table rows
-    const stageRows = cats().flatMap(cat => (cat.stages || [])
-      .filter(s => state.stages[s] && state.stages[s] !== '' && state.stages[s] !== 'na')
-      .map(s => {
-        const sv = state.stages[s];
-        const icon = sv==='done'?'✅':sv==='finished'?'🏁':sv==='prog'?'🔄':'⏳';
-        const lbl  = sv==='done'?'בוצע':sv==='finished'?'הסתיים':sv==='prog'?'בביצוע':'טרם החל';
-        const note = (state.stageNotes[s] || '').replace(/</g, '&lt;');
-        return '<tr><td><b>' + cat.name + '</b><br><span style="font-size:9pt">' + s + '</span></td>' +
-               '<td style="text-align:center;font-size:14pt">' + icon + '</td>' +
-               '<td>' + lbl + '</td>' +
-               '<td style="font-size:9.5pt;color:#555">' + note + '</td></tr>';
-      })
+    const stageRows = stageBlocks.map(b =>
+      `<tr><td><b>${b.cat}</b><br><span style="font-size:9pt">${b.name}</span></td>` +
+      `<td>${statusPill(b.status)}</td>` +
+      `<td style="font-size:9.5pt;color:#555">${(b.note||'').replace(/</g,'&lt;')}</td></tr>`
     ).join('');
 
-    // Stage photo blocks
-    const stagePics = Object.entries(compStage).filter(([,p]) => p && p.length).map(([s,pics]) => {
-      const sv = state.stages[s];
-      const icon = sv==='done'?'✅':sv==='prog'?'🔄':'📷';
-      return '<p style="font-weight:bold;color:#1F4E79;margin:0 0 4pt">' + icon + ' ' + s + '</p>' +
-        pics.map(src => '<img src="' + src + '" style="width:160pt;height:110pt;object-fit:cover;border-radius:4pt;border:1pt solid #ccc;margin:2pt">').join(' ') +
-        (state.stageNotes[s] ? '<p style="font-size:9.5pt;color:#555;margin-top:3pt">📝 ' + state.stageNotes[s] + '</p>' : '') +
-        '<p style="border-top:1pt solid #eee;margin:8pt 0"> </p>';
-    }).join('');
+    const stagePicsHtml = stageBlocks.filter(b => b.pics.length).map(b =>
+      `<div class="stage-block"><div class="stage-hdr">${statusPill(b.status)}<b>${b.name}</b></div>` +
+      `<div class="photo-grid">${b.pics.map(p => `<figure><img src="${p.url}"></figure>`).join('')}</div>` +
+      (b.note ? `<div class="note">📝 ${b.note.replace(/</g,'&lt;')}</div>` : '') +
+      `</div>`
+    ).join('');
 
-    // General photo blocks
-    const generalPics = compGeneral.length ? compGeneral.map(gp =>
-      '<div style="display:inline-block;vertical-align:top;margin:5pt;text-align:center;max-width:190pt">' +
-      '<img src="' + gp.src + '" style="width:180pt;height:130pt;object-fit:cover;border-radius:4pt;border:1pt solid #ccc;display:block">' +
-      (gp.desc ? '<p style="font-size:9.5pt;color:#333;margin-top:4pt;direction:rtl">' + gp.desc + '</p>' : '') +
-      '</div>'
-    ).join('') : '';
+    const generalPicsHtml = (s.generalPhotos||[]).filter(Boolean).length ?
+      `<div class="photo-grid">${(s.generalPhotos||[]).filter(Boolean).map(gp =>
+        `<figure><img src="${gp.url}">${gp.desc ? `<figcaption>${gp.desc.replace(/</g,'&lt;')}</figcaption>` : ''}</figure>`
+      ).join('')}</div>` : '';
 
-    // Issues rows
-    const issueRows = (state.issues || []).filter(i => i.desc).map((iss, i) => {
-      const sc = {'גבוהה':'#C00','בינונית':'#E26B0A','נמוכה':'#375623'};
-      const pics = compIssue[iss.id] || [];
-      const imgs = pics.map(src => '<img src="' + src + '" style="width:110pt;height:80pt;object-fit:cover;border-radius:3pt;border:1pt solid #ccc;margin:2pt">').join('');
-      return '<tr>' +
-        '<td>' + (i+1) + '</td>' +
-        '<td style="color:' + (sc[iss.severity]||'#333') + ';font-weight:bold">' + (iss.severity||'—') + '</td>' +
-        '<td>' + (iss.desc||'').replace(/</g,'&lt;') + (imgs?'<br>'+imgs:'') + '</td>' +
-        '<td>' + (iss.action||'').replace(/</g,'&lt;') + '</td>' +
-        '<td>' + (iss.date?fmt(iss.date):'—') + '</td></tr>';
-    }).join('');
+    const issuesWithDesc = (s.issues || []).filter(i => i.desc);
+    const sevClass = {'גבוהה':'sev-high','בינונית':'sev-med','נמוכה':'sev-low'};
+    const issuesHtml = issuesWithDesc.length ? issuesWithDesc.map((iss, i) => {
+      const pics = s.issuePhotoLinks?.[iss.id] || [];
+      return `<div class="issue-cd ${sevClass[iss.severity]||''}">` +
+        `<b>#${i+1} ${iss.severity ? '· ' + iss.severity : ''}</b>` +
+        `<p style="margin-top:4px">${iss.desc.replace(/</g,'&lt;')}</p>` +
+        (pics.length ? `<div class="photo-grid" style="margin-top:6px">${pics.map(p=>`<figure><img src="${p.url}"></figure>`).join('')}</div>` : '') +
+        `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${iss.action.replace(/</g,'&lt;')}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
+        `</div>`;
+    }).join('') : '<p class="empty-note">לא נמצאו ממצאים בביקור זה.</p>';
 
-    const doneN  = Object.values(state.stages).filter(v => v==='done'||v==='finished').length;
-    const progN  = Object.values(state.stages).filter(v => v==='prog').length;
-    const issN   = (state.issues||[]).filter(i => i.desc).length;
-    const highN  = (state.issues||[]).filter(i => i.severity==='גבוהה').length;
-    const planItems = (state.planWeek1||[]).map(p => '<li>' + p + '</li>').join('');
+    const doneN  = Object.values(s.stages||{}).filter(v => v==='done'||v==='finished').length;
+    const progN  = Object.values(s.stages||{}).filter(v => v==='prog').length;
+    const issN   = issuesWithDesc.length;
+    const highN  = issuesWithDesc.filter(i => i.severity==='גבוהה').length;
+    const planItems = (s.planWeek1||[]).map(p => `<li>${p}</li>`).join('');
     const today  = new Date().toLocaleDateString('he-IL',{year:'numeric',month:'long',day:'numeric'});
+    const pbarColor = pct>=75?'#8BE39B':pct>=40?'#FFD98F':'#fff';
 
-    const content =
-      '<h1 style="text-align:center;color:#1F4E79;font-size:18pt;margin-bottom:6pt">📋 דוח ביקור אתר</h1>' +
-      '<p style="text-align:center;font-size:11pt;margin-bottom:4pt">📍 <b>' + proj + '</b> &nbsp;|  📅 ' + date + (state.visitTime?' &nbsp;|  ⏰ '+state.visitTime:'') + '</p>' +
-      (state.supervisorName ? '<p style="text-align:center;font-size:10.5pt;margin-bottom:4pt">👷 ' + state.supervisorName + (state.siteManager?' &nbsp;|  🦺 '+state.siteManager:'') + '</p>' : '') +
-      (pct !== null ? '<p style="text-align:center;color:#1F4E79;font-weight:bold;margin-bottom:12pt">📊 התקדמות כוללת: ' + pct + '%</p>' : '') +
-      '<hr style="border:none;border-top:2pt solid #1F4E79;margin-bottom:14pt">' +
+    const body = `
+<div class="hdr">
+  <h1>📋 דוח ביקור אתר — ${proj}</h1>
+  <div class="meta">
+    <span>📅 ${date}${s.visitTime ? ' · ⏰ ' + s.visitTime : ''}</span>
+    ${s.supervisorName ? `<span>👷 ${s.supervisorName}</span>` : ''}
+    ${s.siteManager ? `<span>🦺 ${s.siteManager}</span>` : ''}
+  </div>
+  ${pct !== null ? `<div class="pbar"><div class="pbar-f" style="width:${pct}%;background:${pbarColor}"></div></div><div class="meta" style="margin-top:6px">📊 התקדמות כוללת: <b>${pct}%</b></div>` : ''}
+</div>
+<div class="cards">
+  <div class="card"><div class="n">${doneN}</div><div class="l">בוצע / הסתיים</div></div>
+  <div class="card"><div class="n">${progN}</div><div class="l">בביצוע</div></div>
+  <div class="card${highN>0?' warn':''}"><div class="n">${issN}</div><div class="l">ממצאים</div></div>
+  <div class="card${highN>0?' warn':''}"><div class="n">${highN}</div><div class="l">דחופים</div></div>
+</div>
+${stageRows ? `<h2>🏗 שלבי הבנייה</h2><table><tr><th>קטגוריה / שלב</th><th style="width:90px">סטטוס</th><th>הערה</th></tr>${stageRows}</table>` : ''}
+${stagePicsHtml ? `<h2>📷 תמונות שלבי בנייה</h2>${stagePicsHtml}` : ''}
+${generalPicsHtml ? `<h2>📷 תמונות כלליות</h2>${generalPicsHtml}` : ''}
+<h2>⚠ ממצאים</h2>${issuesHtml}
+${planItems ? `<h2>📋 תכנון שבוע קרוב</h2><ul class="plan-list">${planItems}</ul>` : ''}
+${s.nextVisitDate ? `<p style="margin-top:8px"><b>📅 ביקור הבא:</b> ${fmt(s.nextVisitDate)}</p>` : ''}
+${s.generalNotes && s.generalNotes.trim() ? `<h2>📝 הערות כלליות</h2><div class="notes-box">${s.generalNotes.replace(/\n/g,'<br>')}</div>` : ''}
+<div class="footer"><span>הופק: ${today}</span><span>פיקוח בנייה – תמ"א 38</span></div>`;
 
-      '<table style="width:100%;border:1pt solid #1F4E79;margin-bottom:14pt">' +
-      '<tr>' +
-      '<td style="text-align:center;padding:8pt;background:#EBF3FB"><div style="font-size:20pt;font-weight:bold;color:#1F4E79">' + doneN + '</div><div style="font-size:9pt">בוצע/הסתיים</div></td>' +
-      '<td style="text-align:center;padding:8pt;background:#FFF8F0"><div style="font-size:20pt;font-weight:bold;color:#E26B0A">' + progN + '</div><div style="font-size:9pt">בביצוע</div></td>' +
-      '<td style="text-align:center;padding:8pt;background:' + (highN>0?'#FFF0F0':'#F0FAF2') + '"><div style="font-size:20pt;font-weight:bold;color:' + (highN>0?'#C00':'#27ae60') + '">' + issN + '</div><div style="font-size:9pt">ממצאים</div></td>' +
-      '<td style="text-align:center;padding:8pt;background:' + (highN>0?'#FFF0F0':'#F0FAF2') + '"><div style="font-size:20pt;font-weight:bold;color:' + (highN>0?'#C00':'#27ae60') + '">' + highN + '</div><div style="font-size:9pt">דחופים</div></td>' +
-      '</tr></table>' +
-
-      (stageRows ?
-        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">🏗 שלבי הבנייה</h2>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt">' +
-        '<tr style="background:#1F4E79;color:#fff"><th style="padding:6pt;text-align:right">קטגוריה / שלב</th><th style="padding:6pt;width:30pt">סטטוס</th><th style="padding:6pt;width:80pt">פירוט</th><th style="padding:6pt">הערה</th></tr>' +
-        stageRows + '</table>' : '') +
-
-      (stagePics ?
-        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">📷 תמונות שלבי בנייה</h2>' + stagePics : '') +
-
-      (generalPics ?
-        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">📷 תמונות כלליות</h2>' +
-        '<div style="text-align:center">' + generalPics + '</div>' : '') +
-
-      (issueRows ?
-        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">⚠ ממצאים</h2>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:14pt">' +
-        '<tr style="background:#1F4E79;color:#fff"><th style="padding:5pt;text-align:right;width:20pt">#</th><th style="padding:5pt;text-align:right;width:50pt">חומרה</th><th style="padding:5pt;text-align:right">תיאור</th><th style="padding:5pt;text-align:right">פעולה</th><th style="padding:5pt;text-align:right;width:50pt">יעד</th></tr>' +
-        issueRows + '</table>' :
-        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">⚠ ממצאים</h2><p style="color:#888">לא נמצאו ממצאים.</p>') +
-
-      (planItems ? '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-bottom:8pt">📋 תכנון שבוע קרוב</h2><ul style="padding-right:16pt">' + planItems + '</ul>' : '') +
-      (state.nextVisitDate ? '<p style="margin-top:8pt"><b>📅 ביקור הבא:</b> ' + fmt(state.nextVisitDate) + '</p>' : '') +
-
-      (state.generalNotes && state.generalNotes.trim() ?
-        '<h2 style="color:#1F4E79;border-bottom:2pt solid #1F4E79;padding-bottom:4pt;margin-top:14pt;margin-bottom:8pt">📝 הערות כלליות</h2>' +
-        '<div style="background:#EBF3FB;border-right:3pt solid #2E75B6;padding:10pt;direction:rtl;line-height:1.8">' +
-        state.generalNotes.replace(/\n/g,'<br>') + '</div>' : '') +
-
-      '<p style="margin-top:20pt;font-size:9pt;color:#999;border-top:1pt solid #ddd;padding-top:8pt">הופק: ' + today + ' | פיקוח בנייה – תמ"א 38</p>';
-
-    const safeName = (proj||'').replace(/[^֐-׿a-zA-Z0-9]/g,'_');
-    const safeDate = (state.visitDate||'').replace(/-/g,'');
-    downloadAsDoc(content, 'דוח_ביקור_' + safeName + '_' + safeDate + '.doc');
-    showToast('✓ הדוח הורד כקובץ Word');
+    openReportInBlob(reportShell('דוח ביקור – ' + proj, body));
+    showToast('✓ הדוח מוכן');
   } catch(err) {
     showToast('⚠ שגיאה: ' + err.message);
     console.error('Report error:', err);
@@ -1850,6 +1848,13 @@ function populateReportModal() {
   document.getElementById('rptMonth').value=new Date().toISOString().slice(0,7);
   document.getElementById('rptYear').value=new Date().getFullYear();
   updateRptSummary();
+
+  const curSel = document.getElementById('curVisitProject');
+  if (curSel) {
+    curSel.innerHTML = (settings.projects||[]).map(p =>
+      `<option value="${p.replace(/"/g,'&quot;')}"${p===state.project?' selected':''}>${p}</option>`
+    ).join('') || '<option value="">אין פרויקטים</option>';
+  }
 }
 
 function filterVisits(proj, type, val) {
@@ -1882,83 +1887,70 @@ function updateRptSummary() {
   if(el) el.textContent=visitHistory.length?n?'נמצאו '+n+' ביקורים':'אין ביקורים לתקופה זו':'אין ביקורים שמורים';
 }
 
-async function generateHistoricalReport() {
+function generateHistoricalReport() {
   const proj=document.getElementById('rptProject')?.value||'';
   const val=_rtype==='month'?document.getElementById('rptMonth')?.value:
             _rtype==='week'?document.getElementById('rptWeek')?.value:
             _rtype==='year'?document.getElementById('rptYear')?.value:'';
   const visits=filterVisits(proj,_rtype,val).sort((a,b)=>a.visitDate.localeCompare(b.visitDate));
   if(!visits.length){showToast('אין ביקורים לתקופה הנבחרת');return;}
-  showToast('⧗ מכין דוח...');
   const projLabel=proj||'כל הפרויקטים';
   const allIssues=visits.flatMap(v=>(v.issues||[]).map(i=>({...i,visitDate:v.visitDate})));
   const highN=allIssues.filter(i=>i.severity==='גבוהה').length;
   const lastV=visits[visits.length-1];
   const lastPct=visits.filter(v=>v.progressPct!=null).slice(-1)[0]?.progressPct??null;
-  const pbar=lastPct>=75?'#27ae60':lastPct>=40?'#e65100':'#1F4E79';
+  const pbarColor=lastPct>=75?'#8BE39B':lastPct>=40?'#FFD98F':'#fff';
 
   const stageRows=Object.entries(lastV.stages||{}).filter(([,v])=>v&&v!=='na'&&v!=='').map(([s,sv])=>{
-    const icon=sv==='done'?'✅':sv==='finished'?'🏁':sv==='prog'?'🔄':sv==='notyet'?'⏳':'—';
-    const lbl=sv==='done'?'בוצע':sv==='finished'?'הסתיים':sv==='prog'?'בביצוע':'טרם החל';
     const note=(lastV.stageNotes?.[s]||'');
-    return `<tr><td>${s}</td><td style="text-align:center">${icon}</td><td>${lbl}</td><td style="font-size:10pt;color:#555">${note}</td></tr>`;
+    return `<tr><td>${s}</td><td>${statusPill(sv)}</td><td style="font-size:10pt;color:#555">${note.replace(/</g,'&lt;')}</td></tr>`;
   }).join('');
 
   const visitRows=visits.map(v=>{
-    const pc=v.progressPct; const col=pc>=75?'#375623':pc>=40?'#e65100':'#1F4E79';
+    const pc=v.progressPct; const col=pc>=75?'#27ae60':pc>=40?'#e65100':'#1F4E79';
     return `<tr><td><b>${fmt(v.visitDate)}</b>${v.visitTime?'<br><small>'+v.visitTime+'</small>':''}</td><td>${v.siteManager||'—'}</td><td style="font-weight:700;color:${col};text-align:center">${pc!=null?pc+'%':'—'}</td><td>${v.issues?.length||0}</td><td>${v.photoCount||0}</td></tr>`;
   }).join('');
 
-  const issueRows=allIssues.filter(i=>i.desc).map((iss,i)=>{
-    const sc={גבוהה:'#C00',בינונית:'#E26B0A',נמוכה:'#375623'};
-    return `<tr style="${iss.severity==='גבוהה'?'background:#FFF8F8':''}"><td>${i+1}</td><td>${fmt(iss.visitDate)}</td><td style="color:${sc[iss.severity]||'#333'};font-weight:700">${iss.severity||'—'}</td><td>${(iss.desc||'').replace(/</g,'&lt;')}</td><td>${(iss.action||'').replace(/</g,'&lt;')}</td><td>${iss.date?fmt(iss.date):'—'}</td></tr>`;
-  }).join('');
+  const sevClass = {'גבוהה':'sev-high','בינונית':'sev-med','נמוכה':'sev-low'};
+  const issuesWithDesc = allIssues.filter(i=>i.desc);
+  const issuesHtml = issuesWithDesc.length ? issuesWithDesc.map((iss,i)=>
+    `<div class="issue-cd ${sevClass[iss.severity]||''}">` +
+    `<b>#${i+1} · ${fmt(iss.visitDate)}${iss.severity ? ' · ' + iss.severity : ''}</b>` +
+    `<p style="margin-top:4px">${(iss.desc||'').replace(/</g,'&lt;')}</p>` +
+    `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${iss.action.replace(/</g,'&lt;')}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
+    `</div>`
+  ).join('') : '<p class="empty-note">לא נמצאו ממצאים בתקופה זו.</p>';
 
-  // Photo gallery from stagePhotoLinks — embed as data URIs, Word doesn't
-  // reliably fetch remote <img> URLs when opening these HTML-as-.doc files.
-  const stagesWithPhotos = cats().flatMap(c=>(c.stages||[])).filter(s=>visits.some(v=>(v.stagePhotoLinks?.[s]||[]).length>0));
-  const urlToData = {};
-  await Promise.all(stagesWithPhotos.flatMap(s => [...new Set(visits.flatMap(v=>v.stagePhotoLinks?.[s]||[]))])
-    .map(async u => { urlToData[u] = await urlToDataUrl(u); }));
+  // Photo gallery from stagePhotoLinks (already-uploaded public Storage URLs — real
+  // HTML rendered in a browser tab, so no need to re-fetch/embed as data URIs)
+  const stagesWithPhotos = cats(proj || undefined).flatMap(c=>(c.stages||[])).filter(s=>visits.some(v=>(v.stagePhotoLinks?.[s]||[]).length>0));
   const photosGallery = stagesWithPhotos.map(s=>{
     const urls=[...new Set(visits.flatMap(v=>v.stagePhotoLinks?.[s]||[]))];
-    const thumbs=urls.map(u=>`<img src="${urlToData[u]||u}" style="width:150px;height:100px;object-fit:cover;border-radius:5px;border:1px solid #ccc;margin:3px" onerror="this.style.display='none'">`).join('');
-    return `<div style="margin-bottom:12px"><b style="color:#1F4E79">${s}</b><div style="margin-top:5px">${thumbs}</div></div>`;
+    const thumbs=urls.map(u=>`<figure><img src="${u}" onerror="this.closest('figure').style.display='none'"></figure>`).join('');
+    return `<div class="stage-block"><div class="stage-hdr"><b>${s}</b></div><div class="photo-grid">${thumbs}</div></div>`;
   }).join('');
 
-  const CSS2=`@page{size:A4;margin:18mm 14mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#222;direction:rtl;background:#fff}
-.hdr{background:linear-gradient(135deg,#1F4E79,#2E75B6);color:#fff;padding:20px 24px;border-radius:8px;margin-bottom:16px}
-.hdr h1{font-size:16pt;margin-bottom:4px}.hdr p{font-size:10pt;opacity:.9;margin-top:3px}
-.pbar{background:rgba(255,255,255,.25);border-radius:5px;height:9px;margin-top:10px;overflow:hidden}.pbar-f{height:100%;background:${pbar};border-radius:5px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.card{border:1.5px solid #D6E4F0;border-radius:8px;padding:10px;text-align:center}.card .n{font-size:20pt;font-weight:700;color:#1F4E79}.card .l{font-size:9pt;color:#666;margin-top:2px}.card.w .n{color:#C00}.card.w{border-color:#F4C3B2}
-h2{font-size:12pt;color:#1F4E79;border-bottom:2px solid #1F4E79;padding-bottom:3px;margin:14px 0 7px}
-table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10.5pt}th{background:#1F4E79;color:#fff;padding:7px 10px;text-align:right;font-weight:700}td{padding:6px 10px;border-bottom:1px solid #eee;vertical-align:top}tr:nth-child(even) td{background:#F5F8FC}
-.footer{margin-top:18px;padding-top:8px;border-top:1px solid #ddd;font-size:9pt;color:#999;display:flex;justify-content:space-between}
-.btn{display:block;width:190px;margin:0 auto 16px;padding:11px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:12pt;cursor:pointer;font-family:inherit;text-align:center}
-@media print{.btn{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}`;
-
-  const html2=`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דוח – ${projLabel}</title><style>${CSS2}</style></head><body>
-<button class="btn" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
-<div class="hdr"><h1>📊 דוח פיקוח – ${projLabel}</h1><p>📅 ${fmt(visits[0].visitDate)} – ${fmt(visits[visits.length-1].visitDate)} | ${visits.length} ביקורים</p>
-${lastPct!==null?`<div class="pbar"><div class="pbar-f" style="width:${lastPct}%"></div></div><p style="margin-top:6px;font-size:10pt">📊 התקדמות אחרונה: <b>${lastPct}%</b></p>`:''}</div>
+  const body = `
+<div class="hdr">
+  <h1>📊 דוח פיקוח — ${projLabel}</h1>
+  <div class="meta"><span>📅 ${fmt(visits[0].visitDate)} – ${fmt(visits[visits.length-1].visitDate)}</span><span>${visits.length} ביקורים</span></div>
+  ${lastPct!==null?`<div class="pbar"><div class="pbar-f" style="width:${lastPct}%;background:${pbarColor}"></div></div><div class="meta" style="margin-top:6px">📊 התקדמות אחרונה: <b>${lastPct}%</b></div>`:''}
+</div>
 <div class="cards">
   <div class="card"><div class="n">${visits.length}</div><div class="l">ביקורים</div></div>
   <div class="card"><div class="n">${allIssues.length}</div><div class="l">ממצאים</div></div>
-  <div class="card${highN>0?' w':''}"><div class="n">${highN}</div><div class="l">דחופים</div></div>
+  <div class="card${highN>0?' warn':''}"><div class="n">${highN}</div><div class="l">דחופים</div></div>
   <div class="card"><div class="n">${visits.reduce((s,v)=>s+(v.photoCount||0),0)}</div><div class="l">תמונות</div></div>
 </div>
-<h2>סיכום ביקורים</h2><table><thead><tr><th>תאריך</th><th>מנהל עבודה</th><th>התקדמות</th><th>ממצאים</th><th>תמונות</th></tr></thead><tbody>${visitRows}</tbody></table>
-${stageRows?`<h2>שלבי בנייה (עדכני)</h2><table><thead><tr><th>שלב</th><th>סטטוס</th><th>פירוט</th><th>הערה</th></tr></thead><tbody>${stageRows}</tbody></table>`:''}
-${photosGallery?`<h2>📷 תמונות מהפרויקט</h2><div>${photosGallery}</div>`:''}
-${issueRows?`<h2>ממצאים</h2><table><thead><tr><th>#</th><th>תאריך</th><th>חומרה</th><th>תיאור</th><th>פעולה</th><th>יעד</th></tr></thead><tbody>${issueRows}</tbody></table>`:''}
-<div class="footer"><span>הופק: ${new Date().toLocaleDateString('he-IL')}</span><span>פיקוח בנייה – תמ"א 38</span></div>
-<button class="btn" onclick="window.print()" style="margin-top:16px">🖨️ הדפס / שמור PDF</button>
-</body></html>`;
+<h2>סיכום ביקורים</h2><table><tr><th>תאריך</th><th>מנהל עבודה</th><th>התקדמות</th><th>ממצאים</th><th>תמונות</th></tr>${visitRows}</table>
+${stageRows?`<h2>שלבי בנייה (עדכני)</h2><table><tr><th>שלב</th><th style="width:90px">סטטוס</th><th>הערה</th></tr>${stageRows}</table>`:''}
+${photosGallery?`<h2>📷 תמונות מהפרויקט</h2>${photosGallery}`:''}
+<h2>ממצאים</h2>${issuesHtml}
+<div class="footer"><span>הופק: ${new Date().toLocaleDateString('he-IL')}</span><span>פיקוח בנייה – תמ"א 38</span></div>`;
 
   closeModal('reportModal');
-  const safeProjH = (projLabel||'').replace(/[^\u0590-\u05FF\w]/g,'_');
-  downloadAsDoc(html2, 'דוח_פיקוח_' + safeProjH + '.doc');
-  showToast('✓ הדוח הורד כקובץ Word');
+  openReportInBlob(reportShell('דוח – ' + projLabel, body));
+  showToast('✓ הדוח מוכן');
 }
 
 // ═══════════════════════════════════════════════════════════
