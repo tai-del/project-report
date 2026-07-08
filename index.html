@@ -775,6 +775,7 @@ function selectProject(name) {
     const last = projectLastStates[name];
     state.stages = last ? {...last.stages} : {};
     state.stageNotes = last ? {...last.stageNotes} : {};
+    state._hiddenStages = {};
     state.issues = []; state.planWeek1 = []; state.planWeek2 = [];
     state.planWeek1Other = ''; state.planWeek2Other = '';
     state.generalNotes = ''; state.overallProgress = '';
