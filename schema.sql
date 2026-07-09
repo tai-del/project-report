@@ -43,7 +43,6 @@ create table if not exists public.projects (
   created_at timestamptz not null default now()
 );
 
-alter table public.projects add column if not exists milestones jsonb not null default '[]'::jsonb;
 
 -- ── shared visit fields, reused by drafts + visits ──────────
 -- (documented here; both tables repeat these columns since Postgres has no
@@ -63,8 +62,9 @@ create table if not exists public.drafts (
   issues jsonb not null default '[]'::jsonb,
   plan_week1 jsonb not null default '[]'::jsonb,
   plan_week1_other text default '',
-  plan_week2 jsonb not null default '[]'::jsonb,
+  plan_week2 jsonb not null default '[]'::jsonb, -- unused (kept for old rows), replaced by plan_range
   plan_week2_other text default '',
+  plan_range text not null default 'week',
   next_visit_date date,
   overall_progress text default '',
   general_notes text default '',
@@ -87,8 +87,9 @@ create table if not exists public.visits (
   issues jsonb not null default '[]'::jsonb,
   plan_week1 jsonb not null default '[]'::jsonb,
   plan_week1_other text default '',
-  plan_week2 jsonb not null default '[]'::jsonb,
+  plan_week2 jsonb not null default '[]'::jsonb, -- unused (kept for old rows), replaced by plan_range
   plan_week2_other text default '',
+  plan_range text not null default 'week',
   next_visit_date date,
   overall_progress text default '',
   general_notes text default '',
@@ -205,3 +206,11 @@ on conflict (id) do nothing;
 drop policy if exists "public read site" on storage.objects;
 create policy "public read site" on storage.objects
   for select using (bucket_id = 'site');
+
+-- ═══════════════════════════════════════════════════════════
+-- Migrations for columns added after the initial schema — safe
+-- to re-run, only apply once tables already exist above.
+-- ═══════════════════════════════════════════════════════════
+alter table public.projects add column if not exists milestones jsonb not null default '[]'::jsonb;
+alter table public.drafts add column if not exists plan_range text not null default 'week';
+alter table public.visits add column if not exists plan_range text not null default 'week';

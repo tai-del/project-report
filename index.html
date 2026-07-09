@@ -285,18 +285,19 @@ textarea{resize:vertical;min-height:70px}
       </div>
     </div>
     <div class="divider"></div>
-    <div class="field-group"><label class="field-lbl">תכנית לשבוע הקרוב</label></div>
+    <div class="field-group">
+      <label class="field-lbl">טווח זמן לתכנית</label>
+      <select id="planRange" onchange="state.planRange=this.value;autoSave()">
+        <option value="week">שבוע</option>
+        <option value="2weeks">שבועיים</option>
+        <option value="month">חודש</option>
+      </select>
+    </div>
+    <div class="field-group"><label class="field-lbl">תכנית עבודה לתקופה הקרובה</label></div>
     <div id="planWeek1Container"></div>
     <div class="field-group" style="margin-top:6px">
       <label class="field-lbl">אחר</label>
       <textarea id="planWeek1Other" placeholder="פרט נוסף..." oninput="state.planWeek1Other=this.value;autoSave()" rows="2"></textarea>
-    </div>
-    <div class="divider"></div>
-    <div class="field-group"><label class="field-lbl">תכנית לשבוע שאחריו</label></div>
-    <div id="planWeek2Container"></div>
-    <div class="field-group" style="margin-top:6px">
-      <label class="field-lbl">אחר</label>
-      <textarea id="planWeek2Other" placeholder="פרט נוסף..." oninput="state.planWeek2Other=this.value;autoSave()" rows="2"></textarea>
     </div>
     <div class="divider"></div>
     <div class="field-group">
@@ -507,8 +508,7 @@ let state = {
   supervisorName:'', siteManager:'', projectType:'',
   stages:{}, stageNotes:{}, issues:[],
   stagePhotoLinks:{}, issuePhotoLinks:{}, // {stageName/issueId: [{id,url}]} — uploaded to Supabase Storage
-  planWeek1:[], planWeek1Other:'',
-  planWeek2:[], planWeek2Other:'',
+  planWeek1:[], planWeek1Other:'', planRange:'week',
   nextVisitDate:'', overallProgress:'',
   generalNotes:'',
   generalPhotos:[] // [{id,url,desc}]
@@ -547,8 +547,7 @@ function draftRowToState(row) {
     stages: row.stages || {}, stageNotes: row.stage_notes || {},
     _hiddenStages: row.hidden_stages || {},
     issues: row.issues || [],
-    planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '',
-    planWeek2: row.plan_week2 || [], planWeek2Other: row.plan_week2_other || '',
+    planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '', planRange: row.plan_range || 'week',
     nextVisitDate: row.next_visit_date || '', overallProgress: row.overall_progress || '',
     generalNotes: row.general_notes || ''
   };
@@ -563,8 +562,7 @@ function stateToDraftRow(projectId, s) {
     stages: s.stages || {}, stage_notes: s.stageNotes || {},
     hidden_stages: s._hiddenStages || {},
     issues: s.issues || [],
-    plan_week1: s.planWeek1 || [], plan_week1_other: s.planWeek1Other || '',
-    plan_week2: s.planWeek2 || [], plan_week2_other: s.planWeek2Other || '',
+    plan_week1: s.planWeek1 || [], plan_week1_other: s.planWeek1Other || '', plan_range: s.planRange || 'week',
     next_visit_date: s.nextVisitDate || null, overall_progress: s.overallProgress || '',
     general_notes: s.generalNotes || '',
     updated_by: currentUser?.id || null, updated_at: new Date().toISOString()
@@ -637,8 +635,7 @@ async function pullDraftsAndVisits() {
       stages: row.stages || {}, stageNotes: row.stage_notes || {}, issues: row.issues || [],
       stagePhotoLinks: urlsOnly(ph.stage), issuePhotoLinks: urlsOnly(ph.issue),
       generalPhotosDescs: ph.general.map(p => ({ desc: p.desc })),
-      planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '',
-      planWeek2: row.plan_week2 || [], planWeek2Other: row.plan_week2_other || '',
+      planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '', planRange: row.plan_range || 'week',
       nextVisitDate: row.next_visit_date, overallProgress: row.overall_progress || '',
       generalNotes: row.general_notes || '', photoCount,
       progressPct: row.progress_pct, exportedBy: row.supervisor_name
@@ -787,8 +784,7 @@ function selectProject(name) {
     state.stages = last ? {...last.stages} : {};
     state.stageNotes = last ? {...last.stageNotes} : {};
     state._hiddenStages = {};
-    state.issues = []; state.planWeek1 = []; state.planWeek2 = [];
-    state.planWeek1Other = ''; state.planWeek2Other = '';
+    state.issues = []; state.planWeek1 = []; state.planWeek1Other = ''; state.planRange = 'week';
     state.generalNotes = ''; state.overallProgress = '';
     state.nextVisitDate = '';
     state.stagePhotoLinks = {}; state.issuePhotoLinks = {};
@@ -809,7 +805,7 @@ function selectProject(name) {
 
 function rebuildAll() {
   // Sync simple fields
-  ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planWeek2Other',
+  ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planRange',
    'nextVisitDate','generalNotes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = state[id] || '';
@@ -1112,18 +1108,15 @@ function manualUnlockPlan() {
 }
 
 function buildPlanSection() {
-  buildPlanContainer('planWeek1Container', 1);
-  buildPlanContainer('planWeek2Container', 2);
+  buildPlanContainer('planWeek1Container');
   document.getElementById('planWeek1Other').value = state.planWeek1Other||'';
-  document.getElementById('planWeek2Other').value = state.planWeek2Other||'';
   document.getElementById('nextVisitDate').value = state.nextVisitDate||'';
 }
 
-function buildPlanContainer(containerId, week) {
+function buildPlanContainer(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  const arr = week===1 ? state.planWeek1 : state.planWeek2;
-  const key = week===1 ? 'planWeek1' : 'planWeek2';
+  const arr = state.planWeek1;
   el.innerHTML = '';
   cats().forEach((cat, ci) => {
     const div = document.createElement('div');
@@ -1133,7 +1126,7 @@ function buildPlanContainer(containerId, week) {
       const checked = arr.includes(sname);
       const opt = document.createElement('div');
       opt.className = 'plan-opt';
-      opt.innerHTML = `<input type="checkbox" ${checked?'checked':''} onchange="togglePlanOpt(${week},'${sname.replace(/'/g,"\\'")}',this.checked)">
+      opt.innerHTML = `<input type="checkbox" ${checked?'checked':''} onchange="togglePlanOpt('${sname.replace(/'/g,"\\'")}',this.checked)">
         <span class="plan-opt-name">${sname}</span>`;
       div.appendChild(opt);
     });
@@ -1141,10 +1134,9 @@ function buildPlanContainer(containerId, week) {
   });
 }
 
-function togglePlanOpt(week, sname, checked) {
-  const key = week===1?'planWeek1':'planWeek2';
-  if (checked) { if (!state[key].includes(sname)) state[key].push(sname); }
-  else { state[key] = state[key].filter(s=>s!==sname); }
+function togglePlanOpt(sname, checked) {
+  if (checked) { if (!state.planWeek1.includes(sname)) state.planWeek1.push(sname); }
+  else { state.planWeek1 = state.planWeek1.filter(s=>s!==sname); }
   autoSave();
 }
 
@@ -1638,8 +1630,7 @@ async function archiveVisit() {
     projectType: state.projectType, stages: {...state.stages},
     stageNotes: {...state.stageNotes}, issues: state.issues.map(i=>({...i})),
     stagePhotoLinks: urlsOnly(state.stagePhotoLinks), issuePhotoLinks: urlsOnly(state.issuePhotoLinks),
-    planWeek1: [...state.planWeek1], planWeek1Other: state.planWeek1Other,
-    planWeek2: [...state.planWeek2], planWeek2Other: state.planWeek2Other,
+    planWeek1: [...state.planWeek1], planWeek1Other: state.planWeek1Other, planRange: state.planRange,
     nextVisitDate: state.nextVisitDate, overallProgress: state.overallProgress,
     generalNotes: state.generalNotes,
     generalPhotosDescs: (state.generalPhotos||[]).map(gp=>({desc:(gp&&gp.desc)||''})),
@@ -1859,6 +1850,7 @@ async function generateCurrentVisitReport(projectName) {
     const issN   = issuesWithDesc.length;
     const highN  = issuesWithDesc.filter(i => i.severity==='גבוהה').length;
     const planItems = (s.planWeek1||[]).map(p => `<li>${p}</li>`).join('');
+    const planRangeLbl = {week:'שבוע הקרוב', '2weeks':'שבועיים הקרובים', month:'חודש הקרוב'}[s.planRange] || 'שבוע הקרוב';
     const today  = new Date().toLocaleDateString('he-IL',{year:'numeric',month:'long',day:'numeric'});
     const pbarColor = pct>=75?'#8BE39B':pct>=40?'#FFD98F':'#fff';
 
@@ -1918,7 +1910,7 @@ ${generalPicsHtml ? `<h2>📷 תמונות כלליות</h2>${generalPicsHtml}` 
 
 <h2>⚠ ממצאים ואירועים חריגים</h2>${issuesHtml}
 
-${planItems ? `<h2>📋 תכנית עבודה לתקופה הקרובה</h2><ul class="plan-list">${planItems}</ul>` : ''}
+${planItems ? `<h2>📋 תכנית עבודה ל${planRangeLbl}</h2><ul class="plan-list">${planItems}</ul>` : ''}
 ${s.nextVisitDate ? `<p style="margin-top:8px"><b>📅 ביקור הבא:</b> ${fmt(s.nextVisitDate)}</p>` : ''}
 
 ${s.generalNotes && s.generalNotes.trim() ? `<h2>📝 הערות כלליות</h2><div class="notes-box">${s.generalNotes.replace(/\n/g,'<br>')}</div>` : ''}
@@ -2148,8 +2140,7 @@ function importVisitJSON() {
           project_id: pid, visit_date: rec.visitDate, visit_time: rec.visitTime,
           supervisor_name: rec.supervisorName, site_manager: rec.siteManager, project_type: rec.projectType,
           stages: rec.stages||{}, stage_notes: rec.stageNotes||{}, issues: rec.issues||[],
-          plan_week1: rec.planWeek1||[], plan_week1_other: rec.planWeek1Other||'',
-          plan_week2: rec.planWeek2||[], plan_week2_other: rec.planWeek2Other||'',
+          plan_week1: rec.planWeek1||[], plan_week1_other: rec.planWeek1Other||'', plan_range: rec.planRange||'week',
           next_visit_date: rec.nextVisitDate||null, overall_progress: rec.overallProgress||'',
           general_notes: rec.generalNotes||'', progress_pct: rec.progressPct ?? null
         }).select().single();
@@ -2265,8 +2256,7 @@ function importBackup() {
             project_id: pid, visit_date: v.visitDate, visit_time: v.visitTime,
             supervisor_name: v.supervisorName, site_manager: v.siteManager, project_type: v.projectType,
             stages: v.stages||{}, stage_notes: v.stageNotes||{}, issues: v.issues||[],
-            plan_week1: v.planWeek1||[], plan_week1_other: v.planWeek1Other||'',
-            plan_week2: v.planWeek2||[], plan_week2_other: v.planWeek2Other||'',
+            plan_week1: v.planWeek1||[], plan_week1_other: v.planWeek1Other||'', plan_range: v.planRange||'week',
             next_visit_date: v.nextVisitDate||null, overall_progress: v.overallProgress||'',
             general_notes: v.generalNotes||'', progress_pct: v.progressPct ?? null
           });
@@ -2425,8 +2415,7 @@ async function handleVisitsChange(payload) {
       supervisorName: row.supervisor_name, siteManager: row.site_manager, projectType: row.project_type,
       stages: row.stages || {}, stageNotes: row.stage_notes || {}, issues: row.issues || [],
       stagePhotoLinks: stage, issuePhotoLinks: issue, generalPhotosDescs: general,
-      planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '',
-      planWeek2: row.plan_week2 || [], planWeek2Other: row.plan_week2_other || '',
+      planWeek1: row.plan_week1 || [], planWeek1Other: row.plan_week1_other || '', planRange: row.plan_range || 'week',
       nextVisitDate: row.next_visit_date, overallProgress: row.overall_progress || '',
       generalNotes: row.general_notes || '',
       photoCount: general.length + Object.values(stage).flat().length + Object.values(issue).flat().length,
@@ -2483,7 +2472,7 @@ async function init() {
   }
 
   // Sync form fields from state
-  ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planWeek2Other',
+  ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planRange',
    'nextVisitDate','generalNotes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = state[id] || '';
