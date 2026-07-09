@@ -2365,9 +2365,16 @@ async function init() {
   updateProgressBar();
   renderArchive();
 
-  // Register service worker
+  // Register service worker — auto-reload once when a new version takes
+  // over, so users always get the latest code without a manual double-refresh.
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    let _swRefreshed = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swRefreshed) return;
+      _swRefreshed = true;
+      location.reload();
+    });
   }
 
   // Track last project

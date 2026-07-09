@@ -1,5 +1,5 @@
 // Service Worker – פיקוח בנייה תמ"א 38
-const CACHE_NAME = 'pikuach-v4';
+const CACHE_NAME = 'pikuach-v5';
 const PRECACHE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
