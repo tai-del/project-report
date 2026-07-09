@@ -38,9 +38,12 @@ create table if not exists public.projects (
   name text not null unique,
   description text default '',
   custom_stages jsonb not null default '[]'::jsonb, -- [{cat:0-7, name:'...'}]
+  milestones jsonb not null default '[]'::jsonb, -- [{cat:0-7, planned:'YYYY-MM-DD', actual:'YYYY-MM-DD'}]
   created_by uuid references public.profiles(id),
   created_at timestamptz not null default now()
 );
+
+alter table public.projects add column if not exists milestones jsonb not null default '[]'::jsonb;
 
 -- ── shared visit fields, reused by drafts + visits ──────────
 -- (documented here; both tables repeat these columns since Postgres has no

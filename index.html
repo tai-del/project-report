@@ -215,6 +215,9 @@ textarea{resize:vertical;min-height:70px}
     </div>
     <button class="gen-btn" onclick="learnFromProject()" style="margin:4px 0 8px">⚡ למד מהפרויקט והוסף שלבים</button>
     <div class="learn-status" id="learnStatus"></div>
+    <div class="divider"></div>
+    <label class="field-lbl">🗓️ לוח זמנים מתוכנן (מופיע בדוח)</label>
+    <div id="milestonesTable"></div>
   </div>
 </div>
 
@@ -584,12 +587,13 @@ async function pullSettings() {
 async function pullProjects() {
   const { data } = await sb.from('projects').select('*').order('created_at');
   settings.projects = []; projectIdByName = {};
-  settings.projectCustomStages = {}; settings.projectDescriptions = {};
+  settings.projectCustomStages = {}; settings.projectDescriptions = {}; settings.projectMilestones = {};
   (data || []).forEach(p => {
     settings.projects.push(p.name);
     projectIdByName[p.name] = p.id;
     settings.projectCustomStages[p.name] = p.custom_stages || [];
     settings.projectDescriptions[p.name] = p.description || '';
+    settings.projectMilestones[p.name] = p.milestones || [];
   });
 }
 
@@ -793,6 +797,7 @@ function selectProject(name) {
   // Load project description
   const briefEl = document.getElementById('projectBriefText');
   if (briefEl) briefEl.value = (settings.projectDescriptions || {})[name] || '';
+  renderMilestonesTable();
   // Always stamp fresh date/time
   const now = new Date();
   state.visitDate = now.toISOString().slice(0,10);
@@ -1463,6 +1468,40 @@ async function parseSmartText() {
   showToast(count ? '✓ זוהו ' + count + ' שלבים' : 'לא זוהו שלבים. נסה לציין שמות מדויקים');
 }
 
+function renderMilestonesTable() {
+  const el = document.getElementById('milestonesTable');
+  if (!el) return;
+  if (!state.project) { el.innerHTML = ''; return; }
+  const ms = (settings.projectMilestones || {})[state.project] || [];
+  const byCat = {}; ms.forEach(m => byCat[m.cat] = m);
+  const header = `<div style="display:flex;gap:6px;font-size:10px;color:#889;padding:3px 0">
+    <span style="flex:1"></span><span style="width:118px;text-align:center">יעד מתוכנן</span><span style="width:118px;text-align:center">סיום בפועל</span></div>`;
+  const rows = cats().map((cat, ci) => {
+    const m = byCat[ci] || {};
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:11.5px">
+      <span style="flex:1;color:#334">${cat.name}</span>
+      <input type="date" value="${m.planned||''}" onchange="updateMilestone(${ci},'planned',this.value)" style="width:118px;padding:5px 6px;font-size:11px">
+      <input type="date" value="${m.actual||''}" onchange="updateMilestone(${ci},'actual',this.value)" style="width:118px;padding:5px 6px;font-size:11px">
+    </div>`;
+  }).join('');
+  el.innerHTML = header + rows;
+}
+
+async function updateMilestone(ci, field, value) {
+  if (!settings.projectMilestones) settings.projectMilestones = {};
+  const arr = settings.projectMilestones[state.project] || [];
+  let m = arr.find(x => x.cat === ci);
+  if (!m) { m = {cat: ci}; arr.push(m); }
+  m[field] = value || null;
+  settings.projectMilestones[state.project] = arr;
+  cacheLocally();
+  const pid = projectIdByName[state.project];
+  if (!pid) return;
+  setSyncStatus('syncing');
+  const { error } = await sb.from('projects').update({ milestones: arr }).eq('id', pid);
+  setSyncStatus(error ? 'error' : 'ok');
+}
+
 async function learnFromProject() {
   const text = (document.getElementById('projectBriefText') || {}).value;
   if (!text || !text.trim()) { showToast('⚠ כתוב תיאור פרויקט תחילה'); return; }
@@ -1692,6 +1731,15 @@ tr:nth-child(even) td{background:#F7FAFD}
 .footer{margin-top:22px;padding-top:8px;border-top:1px solid #ddd;font-size:9pt;color:#999;display:flex;justify-content:space-between}
 .print-btn{display:block;width:200px;margin:0 auto 16px;padding:11px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:12pt;cursor:pointer;font-family:inherit;text-align:center}
 .empty-note{color:#888}
+.letter-open{margin-bottom:14px;line-height:1.8}
+.letter-open .subject{font-weight:700;margin:8px 0}
+.toc{background:#F7FAFD;border:1px solid #D6E4F0;border-radius:8px;padding:12px 14px;margin-bottom:16px}
+.toc b{color:#1F4E79}
+.toc ul{margin:6px 0 0;padding-right:18px;columns:2;line-height:1.7;font-size:10pt}
+.disclaimer{background:#FFFBEA;border:1px solid #F0E2A8;border-radius:8px;padding:12px 14px;font-size:9.5pt;color:#665500;line-height:1.7;margin:16px 0}
+.signoff{margin-top:20px;line-height:1.8}
+.distribution{font-size:9.5pt;color:#666;margin-top:8px}
+.explainer-box{background:#F7FAFD;border-right:3px solid #2E75B6;border-radius:6px;padding:14px;line-height:1.8;font-size:10pt}
 @media print{.print-btn{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 `;
 
@@ -1706,6 +1754,33 @@ function statusPill(status) {
   const p = PILL_INFO[status] || PILL_INFO.notyet;
   return `<span class="pill ${p.cls}">${p.icon} ${p.lbl}</span>`;
 }
+
+// Friendly explainers for apartment owners, one per DEFAULT_CATS index — shown
+// as a report appendix for whichever category the project is currently at.
+const CATEGORY_EXPLAINERS = [
+  'בשלב הראשון נבדקת הקרקע (סקרי קרקע), מגודר ומאובטח השטח, ונהרסים/מפונים מבנים ישנים במידת הצורך. זהו שלב ההכנה וה’תיאום’ שבו הקבלנים מארגנים את האתר ואת לוחות הזמנים לפני שמתחילה בפועל עבודת הבנייה.',
+  'שלד הבניין מורכב מארבעה חלקים עיקריים – בדיוק כמו גוף האדם: היסודות והתת-קרקע הם הרגליים והבסיס היציב, ה’גרעין’ (חדר המדרגות ופירי המעלית/החשמל/המים) הוא עמוד השדרה שסביבו נבנית ה’מעטפת’ – קירות הדירות עצמן, ומעליהם ’גג המבנה’ – ה’ראש’. שלב זה כולל יציקות בטון וברזל, ולכל קומה ’מחזור בנייה’ טיפוסי של כ-3–4 שבועות.',
+  'לפני הטיח, נכנסות אל תוך קירות השלד כל המערכות שמעניקות לבניין ’חיים’: צנרת חשמל, מים, ביוב, מיזוג אוויר ותקשורת. בשלב זה גם מותקנים ’משקופים עיוורים’ – מסגרות מתכת זמניות בפתחי החלונות והדלתות שמבטיחות התקנה מדויקת בהמשך. זהו שלב קריטי לתכנון: כל שינוי לאחר הטיח (מיקום שקע, גובה ארון) כרוך בשבירה ותיקון יקרים.',
+  'קירות הבניין מקבלים כיסוי טיח פנים וחוץ בשלוש שכבות (התזה, יסוד וגמר), ובמקביל מבוצע איטום בחדרים הרטובים, במרפסות ובגגות למניעת חדירת מים. זהו שלב שבו הבניין ’נסגר’ מבחינת מעטפת ומתחיל לקבל את צורתו הסופית.',
+  'בשלב זה מותקנים האלמנטים שקובעים את המראה החיצוני של הבניין: חיפויי אבן/לוחות, חלונות וויטרינות אלומיניום, דלתות כניסה ומעקות זכוכית. אלו העבודות ש’נראות’ מבחוץ ומעניקות לבניין את החזות הסופית שלו.',
+  'זהו שלב ה’עור והפנים’ של כל דירה: ריצוף, נגרות, צביעה, התקנת מטבח וחדרי רחצה. כאן מתבצעות רוב ההחלטות העיצוביות של בעלי הדירות, וכאן גם רואים לראשונה איך תיראה הדירה המוגמרת.',
+  'בשלב זה מותקנות ונבדקות מערכות התפעול של הבניין כולו: מעלית, גנרטור חירום ולוח חשמל ראשי, אינטרקום ומערכות אבטחה, מערכת כיבוי אש, ועוד. אלו המערכות שיפעילו את הבניין ביום-יום לאחר האכלוס.',
+  'השלב האחרון כולל את הסביבה החיצונית של הבניין: שבילי כניסה, גינון ועיצוב נוף, חניות וגדרות. עבודות אלו מלוות לרוב את שלבי הגמר הפנימיים ומסתיימות לקראת מסירת הדירות.'
+];
+
+const REPORT_DISCLAIMER = 'הדוח העיתי מיועד לתת סקירה כללית על מצב הפרויקט ואינו מהווה מסמך משפטי. טיפול שוטף בפערים ובליקויים מתבצע במסגרת פגישות העבודה באתר עם מנהל הפרויקט, הקבלן המבצע ומנהל העבודה, ונרשם ביומן העבודה באתר – מסמך בעל תוקף משפטי. במידה ויש ליקויים או פערים שאינם מטופלים במועד סביר או לשביעות רצון בעלי הדירות, יופץ בנפרד סיכום ממצא הדורש טיפול מול היזם ומנהל הפרויקט.';
+
+function currentFrontierCategoryIndex(projectName, stagesObj) {
+  const c = cats(projectName);
+  for (let i = 0; i < c.length; i++) {
+    const names = c[i].stages || [];
+    if (!names.length) continue;
+    const allSettled = names.every(n => ['done','finished','na'].includes(stagesObj[n]));
+    if (!allSettled) return i;
+  }
+  return c.length - 1;
+}
+
 function reportShell(title, bodyHtml) {
   return `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${title}</title><style>${REPORT_CSS}</style></head><body>
 <button class="print-btn" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
@@ -1752,7 +1827,7 @@ async function generateCurrentVisitReport(projectName) {
     const stageRows = stageBlocks.map(b =>
       `<tr><td><b>${b.cat}</b><br><span style="font-size:9pt">${b.name}</span></td>` +
       `<td>${statusPill(b.status)}</td>` +
-      `<td style="font-size:9.5pt;color:#555">${(b.note||'').replace(/</g,'&lt;')}</td></tr>`
+      `<td style="font-size:9.5pt;color:#555">${(b.note||'').replace(/</g,'&lt;') || '—'}</td></tr>`
     ).join('');
 
     const stagePicsHtml = stageBlocks.filter(b => b.pics.length).map(b =>
@@ -1777,7 +1852,7 @@ async function generateCurrentVisitReport(projectName) {
         (pics.length ? `<div class="photo-grid" style="margin-top:6px">${pics.map(p=>`<figure><img src="${p.url}"></figure>`).join('')}</div>` : '') +
         `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${iss.action.replace(/</g,'&lt;')}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
         `</div>`;
-    }).join('') : '<p class="empty-note">לא נמצאו ממצאים בביקור זה.</p>';
+    }).join('') : '<p class="empty-note">אמ"ל – אין ממצאים או אירועים חריגים לדווח בביקור זה.</p>';
 
     const doneN  = Object.values(s.stages||{}).filter(v => v==='done'||v==='finished').length;
     const progN  = Object.values(s.stages||{}).filter(v => v==='prog').length;
@@ -1787,9 +1862,22 @@ async function generateCurrentVisitReport(projectName) {
     const today  = new Date().toLocaleDateString('he-IL',{year:'numeric',month:'long',day:'numeric'});
     const pbarColor = pct>=75?'#8BE39B':pct>=40?'#FFD98F':'#fff';
 
+    // Planned-vs-actual milestone schedule (only shown if the supervisor set any dates for this project)
+    const milestones = (settings.projectMilestones || {})[proj] || [];
+    const hasMilestones = milestones.some(m => m.planned || m.actual);
+    const byCat = {}; milestones.forEach(m => byCat[m.cat] = m);
+    const milestoneRows = cats(proj).map((cat, ci) => {
+      const m = byCat[ci] || {};
+      return `<tr><td>${cat.name}</td><td style="text-align:center">${m.planned ? fmt(m.planned) : '—'}</td><td style="text-align:center">${m.actual ? fmt(m.actual) : '—'}</td></tr>`;
+    }).join('');
+
+    const frontierIdx = currentFrontierCategoryIndex(proj, s.stages || {});
+    const explainerCat = cats(proj)[frontierIdx];
+    const explainerText = CATEGORY_EXPLAINERS[frontierIdx] || '';
+
     const body = `
 <div class="hdr">
-  <h1>📋 דוח ביקור אתר — ${proj}</h1>
+  <h1>📋 דוח מפקח/ת הנדסי מטעם בעלי הדירות — ${proj}</h1>
   <div class="meta">
     <span>📅 ${date}${s.visitTime ? ' · ⏰ ' + s.visitTime : ''}</span>
     ${s.supervisorName ? `<span>👷 ${s.supervisorName}</span>` : ''}
@@ -1797,19 +1885,54 @@ async function generateCurrentVisitReport(projectName) {
   </div>
   ${pct !== null ? `<div class="pbar"><div class="pbar-f" style="width:${pct}%;background:${pbarColor}"></div></div><div class="meta" style="margin-top:6px">📊 התקדמות כוללת: <b>${pct}%</b></div>` : ''}
 </div>
+
+<div class="letter-open">
+  <p>לכבוד בעלי הדירות בפרויקט ${proj},</p>
+  <p>שלום רב,</p>
+  <p class="subject">הנדון: דו"ח ביקור פיקוח — ${proj}, מעודכן ל-${date}</p>
+  <p>להלן עדכון מצב ההתקדמות ואיכות העבודות באתר, נכון לביקור מיום ${date}.</p>
+</div>
+
+<div class="toc"><b>תוכן הדוח:</b><ul>
+  ${hasMilestones ? '<li>לוח זמנים מתוכנן לפרויקט</li>' : ''}
+  <li>התקדמות הבנייה</li>
+  <li>תמונות מהאתר</li>
+  <li>ממצאים ואירועים חריגים</li>
+  <li>תכנית עבודה לתקופה הקרובה</li>
+  <li>הערות כלליות</li>
+  <li>נספח: הסבר על שלב הבנייה הנוכחי</li>
+</ul></div>
+
 <div class="cards">
   <div class="card"><div class="n">${doneN}</div><div class="l">בוצע / הסתיים</div></div>
   <div class="card"><div class="n">${progN}</div><div class="l">בביצוע</div></div>
   <div class="card${highN>0?' warn':''}"><div class="n">${issN}</div><div class="l">ממצאים</div></div>
   <div class="card${highN>0?' warn':''}"><div class="n">${highN}</div><div class="l">דחופים</div></div>
 </div>
-${stageRows ? `<h2>🏗 שלבי הבנייה</h2><table><tr><th>קטגוריה / שלב</th><th style="width:90px">סטטוס</th><th>הערה</th></tr>${stageRows}</table>` : ''}
+
+${hasMilestones ? `<h2>🗓️ לוח זמנים מתוכנן לפרויקט</h2><table><tr><th>שלב בנייה</th><th style="width:110px">תאריך יעד מתוכנן</th><th style="width:110px">תאריך סיום בפועל</th></tr>${milestoneRows}</table>` : ''}
+
+${stageRows ? `<h2>🏗 התקדמות הבנייה</h2><table><tr><th>קטגוריה / שלב</th><th style="width:90px">סטטוס</th><th>הערה</th></tr>${stageRows}</table>` : ''}
 ${stagePicsHtml ? `<h2>📷 תמונות שלבי בנייה</h2>${stagePicsHtml}` : ''}
 ${generalPicsHtml ? `<h2>📷 תמונות כלליות</h2>${generalPicsHtml}` : ''}
-<h2>⚠ ממצאים</h2>${issuesHtml}
-${planItems ? `<h2>📋 תכנון שבוע קרוב</h2><ul class="plan-list">${planItems}</ul>` : ''}
+
+<h2>⚠ ממצאים ואירועים חריגים</h2>${issuesHtml}
+
+${planItems ? `<h2>📋 תכנית עבודה לתקופה הקרובה</h2><ul class="plan-list">${planItems}</ul>` : ''}
 ${s.nextVisitDate ? `<p style="margin-top:8px"><b>📅 ביקור הבא:</b> ${fmt(s.nextVisitDate)}</p>` : ''}
+
 ${s.generalNotes && s.generalNotes.trim() ? `<h2>📝 הערות כלליות</h2><div class="notes-box">${s.generalNotes.replace(/\n/g,'<br>')}</div>` : ''}
+
+<div class="disclaimer">⚠️ ${REPORT_DISCLAIMER}</div>
+
+<div class="signoff">
+  <p>בברכה,</p>
+  <p><b>${s.supervisorName || 'מפקח/ת הבנייה'}</b><br>מפקח/ת בנייה מטעם בעלי הדירות</p>
+  <div class="distribution">רשימת תפוצה: נציגות בעלי הדירות | עו"ד בעלי הנכס | היזם | הקבלן המבצע</div>
+</div>
+
+${explainerText ? `<h2>📖 נספח: הסבר על שלב "${explainerCat.name}"</h2><div class="explainer-box">${explainerText}</div>` : ''}
+
 <div class="footer"><span>הופק: ${today}</span><span>פיקוח בנייה – תמ"א 38</span></div>`;
 
     openReportInBlob(reportShell('דוח ביקור – ' + proj, body));
@@ -1919,7 +2042,7 @@ function generateHistoricalReport() {
     `<p style="margin-top:4px">${(iss.desc||'').replace(/</g,'&lt;')}</p>` +
     `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${iss.action.replace(/</g,'&lt;')}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
     `</div>`
-  ).join('') : '<p class="empty-note">לא נמצאו ממצאים בתקופה זו.</p>';
+  ).join('') : '<p class="empty-note">אמ"ל – אין ממצאים או אירועים חריגים לדווח בתקופה זו.</p>';
 
   // Photo gallery from stagePhotoLinks (already-uploaded public Storage URLs — real
   // HTML rendered in a browser tab, so no need to re-fetch/embed as data URIs)
@@ -1945,7 +2068,13 @@ function generateHistoricalReport() {
 <h2>סיכום ביקורים</h2><table><tr><th>תאריך</th><th>מנהל עבודה</th><th>התקדמות</th><th>ממצאים</th><th>תמונות</th></tr>${visitRows}</table>
 ${stageRows?`<h2>שלבי בנייה (עדכני)</h2><table><tr><th>שלב</th><th style="width:90px">סטטוס</th><th>הערה</th></tr>${stageRows}</table>`:''}
 ${photosGallery?`<h2>📷 תמונות מהפרויקט</h2>${photosGallery}`:''}
-<h2>ממצאים</h2>${issuesHtml}
+<h2>ממצאים ואירועים חריגים</h2>${issuesHtml}
+<div class="disclaimer">⚠️ ${REPORT_DISCLAIMER}</div>
+<div class="signoff">
+  <p>בברכה,</p>
+  <p><b>${lastV.supervisorName || 'מפקח/ת הבנייה'}</b><br>מפקח/ת בנייה מטעם בעלי הדירות</p>
+  <div class="distribution">רשימת תפוצה: נציגות בעלי הדירות | עו"ד בעלי הנכס | היזם | הקבלן המבצע</div>
+</div>
 <div class="footer"><span>הופק: ${new Date().toLocaleDateString('he-IL')}</span><span>פיקוח בנייה – תמ"א 38</span></div>`;
 
   closeModal('reportModal');
@@ -2335,6 +2464,7 @@ async function init() {
       state.visitTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
       const briefEl = document.getElementById('projectBriefText');
       if (briefEl) briefEl.value = (settings.projectDescriptions || {})[proj] || '';
+      renderMilestonesTable();
     }
   }
 
