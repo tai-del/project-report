@@ -1,5 +1,5 @@
 // Service Worker – פיקוח בנייה תמ"א 38
-const CACHE_NAME = 'pikuach-v5';
+const CACHE_NAME = 'pikuach-v6';
 const PRECACHE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -23,9 +23,13 @@ self.addEventListener('fetch', e => {
 
   // The app shell (page navigations + index.html) is network-first so a new
   // deploy is picked up immediately; falls back to cache only when offline.
+  // cache:'no-store' bypasses the browser's own HTTP cache too — GitHub
+  // Pages sends Cache-Control: max-age=600, which without this would let a
+  // stale response win for up to 10 minutes even with this "network-first"
+  // logic in place.
   if (e.request.mode === 'navigate' || e.request.url.endsWith('index.html')) {
     e.respondWith(
-      fetch(e.request).then(resp => {
+      fetch(e.request, { cache: 'no-store' }).then(resp => {
         const clone = resp.clone();
         caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
         return resp;
