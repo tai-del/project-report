@@ -367,6 +367,7 @@ textarea{resize:vertical;min-height:70px}
 <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="onCamFile(this)">
 <input type="file" id="galInput" accept="image/*" style="display:none" onchange="onCamFile(this)">
 <input type="file" id="mainImageInput" accept="image/*" style="display:none" onchange="onMainImageFile(this)">
+<input type="file" id="mainImageCamInput" accept="image/*" capture="environment" style="display:none" onchange="onMainImageFile(this)">
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -1605,15 +1606,21 @@ function renderMainImagePreview() {
   if (path) {
     const url = photoPublicUrl(path);
     el.innerHTML = `<div class="main-img-wrap"><img src="${url}"><button class="thumb-del" title="הסר תמונה" onclick="removeMainImage()">×</button></div>
-      <button class="cam-btn" onclick="triggerMainImageUpload()">🖼️ החלף תמונה</button>`;
+      <div style="display:flex;gap:6px">
+        <button class="cam-btn" onclick="triggerMainImageUpload(false)">📷 צלם</button>
+        <button class="cam-btn" onclick="triggerMainImageUpload(true)">🖼️ גלריה</button>
+      </div>`;
   } else {
-    el.innerHTML = `<button class="cam-btn" onclick="triggerMainImageUpload()">🖼️ בחר/העלה תמונה ראשית</button>`;
+    el.innerHTML = `<div style="display:flex;gap:6px">
+        <button class="cam-btn" onclick="triggerMainImageUpload(false)">📷 צלם</button>
+        <button class="cam-btn" onclick="triggerMainImageUpload(true)">🖼️ גלריה</button>
+      </div>`;
   }
 }
 
-function triggerMainImageUpload() {
+function triggerMainImageUpload(useGallery) {
   if (!state.project) { showToast('⚠️ בחר פרויקט תחילה'); return; }
-  const inp = document.getElementById('mainImageInput');
+  const inp = document.getElementById(useGallery ? 'mainImageInput' : 'mainImageCamInput');
   inp.value = '';
   inp.click();
 }
