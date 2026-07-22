@@ -13,7 +13,8 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Segoe UI",Arial,sans-serif;background:#ECF3FA;color:#1a1a1a;direction:rtl;min-height:100vh;padding-bottom:80px}
 /* TOP BAR */
-.topbar{background:var(--blue);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topbar{background:var(--blue);color:#fff;padding:8px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topbar-logo{height:32px;background:#fff;border-radius:6px;padding:4px 8px;display:block}
 .topbar-title{font-size:14px;font-weight:700;flex:1}
 .topbar-btn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:7px;padding:7px 10px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .topbar-btn:active{background:rgba(255,255,255,.3)}
@@ -176,7 +177,8 @@ textarea{resize:vertical;min-height:70px}
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <span class="topbar-title">🏗️ פיקוח בנייה – תמ"א 38</span>
+  <img class="topbar-logo" src="assets/eshhar-logo.png" alt="אשחר פתרונות הנדסיים">
+  <span class="topbar-title">פיקוח בנייה – תמ"א 38</span>
   <span class="admin-active-badge" id="adminBadge">🔐 אדמין</span>
   <span class="sync-badge" id="syncBadge">☁️ מסונכרן</span>
   <button class="topbar-btn" id="userBadge" onclick="doSignOut()" title="התנתק">👤</button>
