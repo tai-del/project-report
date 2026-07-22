@@ -2013,18 +2013,14 @@ async function generateCurrentVisitReport(projectName) {
       .map(name => ({cat: cat.name, name, status: s.stages[name], note: s.stageNotes?.[name] || '', pics: s.stagePhotoLinks?.[name] || []}))
     );
 
-    const stageRows = stageBlocks.map(b =>
-      `<tr><td><b>${b.cat}</b><br><span style="font-size:9pt">${b.name}</span></td>` +
-      `<td>${statusPill(b.status)}</td>` +
-      `<td style="font-size:9.5pt;color:#555">${escapeHtml(b.note) || '—'}</td></tr>`
-    ).join('');
-
-    const stagePicsHtml = stageBlocks.filter(b => b.pics.length).map(b =>
-      `<div class="stage-block"><div class="stage-hdr">${statusPill(b.status)}<b>${b.name}</b></div>` +
-      `<div class="photo-grid">${b.pics.map(p => `<figure><img src="${p.url}"></figure>`).join('')}</div>` +
-      (b.note ? `<div class="note">📝 ${escapeHtml(b.note)}</div>` : '') +
-      `</div>`
-    ).join('');
+    const stageRows = stageBlocks.map(b => {
+      const mainRow = `<tr><td><b>${b.cat}</b><br><span style="font-size:9pt">${b.name}</span></td>` +
+        `<td>${statusPill(b.status)}</td>` +
+        `<td style="font-size:9.5pt;color:#555">${escapeHtml(b.note) || '—'}</td></tr>`;
+      const picsRow = b.pics.length ?
+        `<tr><td colspan="3" style="border-top:none;padding-top:0"><div class="photo-grid" style="margin:2px 0 6px">${b.pics.map(p => `<figure><img src="${p.url}"></figure>`).join('')}</div></td></tr>` : '';
+      return mainRow + picsRow;
+    }).join('');
 
     const generalPicsHtml = (s.generalPhotos||[]).filter(Boolean).length ?
       `<div class="photo-grid">${(s.generalPhotos||[]).filter(Boolean).map(gp =>
@@ -2140,9 +2136,7 @@ ${s.generalNotes && s.generalNotes.trim() ? `<div class="notes-box">${escapeHtml
   </div>
 </div>
 
-${(stagePicsHtml || generalPicsHtml) ? `<h2 style="text-align:center;font-size:14pt;font-weight:800;color:#1F4E79;margin:26px 0 12px">נספח א': צילומים מהאתר${date ? ' — ' + date : ''}</h2>
-${stagePicsHtml ? `<h3 style="color:#1F4E79;font-size:11pt;margin:14px 0 8px">שלבי בנייה</h3>${stagePicsHtml}` : ''}
-${generalPicsHtml ? `<h3 style="color:#1F4E79;font-size:11pt;margin:14px 0 8px">תמונות כלליות</h3>${generalPicsHtml}` : ''}` : ''}
+${generalPicsHtml ? `<h2 style="text-align:center;font-size:14pt;font-weight:800;color:#1F4E79;margin:26px 0 12px">נספח א': תמונות כלליות${date ? ' — ' + date : ''}</h2>${generalPicsHtml}` : ''}
 
 ${glossaryHtml ? `<h2 style="text-align:center;font-size:14pt;font-weight:800;color:#1F4E79;margin:26px 0 12px">נספח ב': הסבר קצר על שלבי הבנייה</h2>${glossaryHtml}` : ''}`;
 
