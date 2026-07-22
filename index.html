@@ -426,7 +426,7 @@ textarea{resize:vertical;min-height:70px}
     <div class="share-section-title">שיתוף עם עמיתים</div>
     <button class="share-btn" onclick="exportVisitJSON()" style="background:#1F4E79;color:#fff"><span>📤</span><span>ייצא ביקור (JSON)</span></button>
     <button class="share-btn" onclick="importVisitJSON()" style="background:#375623;color:#fff"><span>📥</span><span>ייבא ביקור עמית</span></button>
-    <button class="share-btn" onclick="distributeApp()" style="background:#6a1b9a;color:#fff"><span>📱</span><span>הפץ אפליקציה לעמית</span></button>
+    <button class="share-btn" onclick="shareAppLink()" style="background:#6a1b9a;color:#fff"><span>📱</span><span>שתף קישור לאפליקציה</span></button>
     <button class="modal-close" onclick="closeModal('shareModal')">סגור</button>
   </div>
 </div>
@@ -670,6 +670,9 @@ async function loadAll() {
     console.error('pull failed, using cache', e);
     setSyncStatus('error');
   }
+  // Re-apply any edits that never made it to the server (e.g. made while
+  // offline) so a fresh pull doesn't silently overwrite them, then retry.
+  restoreDirtyDrafts();
   cacheLocally();
 }
 
@@ -685,14 +688,41 @@ function saveHistory() { cacheLocally(); }
 function saveDrafts() { cacheLocally(); }
 function saveLastStates() { cacheLocally(); }
 
+// ── Offline-safe draft push: a failed push (no connectivity, etc.) is kept
+// in localStorage and retried on reconnect / next boot, instead of being lost.
+function markDraftDirty(name, s) {
+  try {
+    const dirty = JSON.parse(localStorage.getItem('pikuach_dirty') || '{}');
+    dirty[name] = s;
+    localStorage.setItem('pikuach_dirty', JSON.stringify(dirty));
+  } catch (e) {}
+}
+function clearDraftDirty(name) {
+  try {
+    const dirty = JSON.parse(localStorage.getItem('pikuach_dirty') || '{}');
+    delete dirty[name];
+    localStorage.setItem('pikuach_dirty', JSON.stringify(dirty));
+  } catch (e) {}
+}
+function restoreDirtyDrafts() {
+  let dirty; try { dirty = JSON.parse(localStorage.getItem('pikuach_dirty') || '{}'); } catch (e) { dirty = {}; }
+  Object.entries(dirty).forEach(([name, s]) => {
+    projectDrafts[name] = s;
+    if (name === state.project) Object.assign(state, s);
+    pushDraft(name, s);
+  });
+}
+
 async function pushDraft(name, s) {
   const pid = projectIdByName[name];
   if (!pid) return;
   setSyncStatus('syncing');
   const { error } = await sb.from('drafts').upsert(stateToDraftRow(pid, s), { onConflict: 'project_id' });
-  setSyncStatus(error ? 'error' : 'ok');
-  if (error) console.error('pushDraft failed', error);
+  if (error) { console.error('pushDraft failed', error); setSyncStatus('error'); markDraftDirty(name, s); }
+  else { setSyncStatus('ok'); clearDraftDirty(name); }
 }
+
+window.addEventListener('online', restoreDirtyDrafts);
 
 let _saveTimer;
 function autoSave() {
@@ -721,6 +751,12 @@ function fmt(d) {
   if (!d) return '';
   const p = d.split('-');
   return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : d;
+}
+
+// Escapes text being inserted as HTML element CONTENT (between tags), e.g.
+// inside a <textarea>...</textarea> — attribute values only need quotes escaped.
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function calcProgressForStages(stages) {
@@ -803,6 +839,19 @@ function selectProject(name) {
   updateProgressBar();
 }
 
+// Highlights the currently-selected project-type / overall-progress buttons
+// to match state — needed both after switching projects and on cold boot.
+function syncSelectionButtons() {
+  document.querySelectorAll('#projTypeBtns .sbtn').forEach(b => {
+    const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+    b.className = 'sbtn' + (v === state.projectType ? ' done' : '');
+  });
+  document.querySelectorAll('.sec-body .sbtn[onclick*="setOverallProg"]').forEach(b => {
+    const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+    b.className = 'sbtn' + (v === state.overallProgress ? (v==='ahead'?' sel-ahead':v==='ontrack'?' sel-ontrack':' sel-behind') : '');
+  });
+}
+
 function rebuildAll() {
   // Sync simple fields
   ['visitDate','visitTime','supervisorName','siteManager','planWeek1Other','planRange',
@@ -816,16 +865,7 @@ function rebuildAll() {
     gArea.innerHTML = '';
     (state.generalPhotos || []).forEach(gp => { if (gp && gp.url) addGeneralPhotoToStrip(gp.id, gp.url, gp.desc); });
   }
-  // Project type buttons
-  document.querySelectorAll('#projTypeBtns .sbtn').forEach(b => {
-    const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
-    b.className = 'sbtn' + (v === state.projectType ? ' done' : '');
-  });
-  // Overall progress
-  document.querySelectorAll('.sec-body .sbtn[onclick*="setOverallProg"]').forEach(b => {
-    const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
-    b.className = 'sbtn' + (v === state.overallProgress ? (v==='ahead'?' sel-ahead':v==='ontrack'?' sel-ontrack':' sel-behind') : '');
-  });
+  syncSelectionButtons();
   buildStages();
   buildPlanSection();
   renderIssues();
@@ -1180,7 +1220,7 @@ function renderIssues() {
       </div>
       <div class="field-group">
         <label class="field-lbl">תיאור הממצא</label>
-        <textarea rows="2" placeholder="תאר את הממצא..." oninput="state.issues[${idx}].desc=this.value;autoSave()">${iss.desc||''}</textarea>
+        <textarea rows="2" placeholder="תאר את הממצא..." oninput="state.issues[${idx}].desc=this.value;autoSave()">${escapeHtml(iss.desc)}</textarea>
       </div>
       <div class="row2">
         <div class="field-group">
@@ -1242,13 +1282,38 @@ async function uploadPhotoRecord(kind, projectId, refKey, dataUrl, desc) {
   const path = projectId + '/' + kind + '/' + crypto.randomUUID() + '.jpg';
   const blob = await (await fetch(dataUrl)).blob();
   const { error: upErr } = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
-  if (upErr) { console.error(upErr); showToast('⚠️ שגיאת העלאת תמונה'); return null; }
+  if (upErr) { console.error(upErr); return null; }
   const { data, error } = await sb.from('visit_photos').insert({
     project_id: projectId, kind, ref_key: refKey, storage_path: path,
     description: desc || '', created_by: currentUser?.id || null
   }).select().single();
-  if (error) { console.error(error); showToast('⚠️ שגיאה בשמירת תמונה'); return null; }
+  if (error) { console.error(error); return null; }
   return { id: data.id, url: photoPublicUrl(path), desc: desc || '', path };
+}
+
+// A failed upload (offline, flaky connection, etc.) used to just vanish with
+// an error toast, losing the photo the supervisor just took on site. Instead,
+// keep a local preview with a retry button until it actually uploads.
+let _failedUploadSeq = 0;
+function renderFailedUploadThumb(containerId, dataUrl, retryFn) {
+  const strip = document.getElementById(containerId);
+  if (!strip) return;
+  const localId = 'fail_' + (++_failedUploadSeq);
+  const wrap = document.createElement('div');
+  wrap.className = 'thumb-wrap';
+  wrap.id = localId;
+  wrap.innerHTML = `<img src="${dataUrl}"><div class="upload-dot" style="background:#C00000"></div><button class="thumb-del" title="נסה שוב" onclick="retryFailedUpload('${localId}')">↻</button>`;
+  strip.insertBefore(wrap, strip.querySelector('.cam-btn'));
+  _pendingRetries[localId] = retryFn;
+  showToast('⚠️ העלאה נכשלה — הקש על החץ בתמונה כדי לנסות שוב');
+}
+const _pendingRetries = {};
+async function retryFailedUpload(localId) {
+  const fn = _pendingRetries[localId];
+  if (!fn) return;
+  showToast('⏳ מנסה שוב...');
+  const ok = await fn();
+  if (ok) { delete _pendingRetries[localId]; document.getElementById(localId)?.remove(); }
 }
 
 async function deletePhotoRecord(p) {
@@ -1268,11 +1333,19 @@ function onCamFile(inp) {
     showToast('⏳ מעלה תמונה...');
 
     if (type === 'stage') {
+      const containerId = 'sPhotos_' + key.replace(/\W/g,'_');
       const p = await uploadPhotoRecord('stage', pid, key, compressed, '');
-      if (!p) return;
+      if (!p) { renderFailedUploadThumb(containerId, compressed, async () => {
+        const p2 = await uploadPhotoRecord('stage', pid, key, compressed, '');
+        if (!p2) return false;
+        if (!state.stagePhotoLinks[key]) state.stagePhotoLinks[key] = [];
+        state.stagePhotoLinks[key].push(p2);
+        buildStages();
+        return true;
+      }); return; }
       if (!state.stagePhotoLinks[key]) state.stagePhotoLinks[key] = [];
       state.stagePhotoLinks[key].push(p);
-      const strip = document.getElementById('sPhotos_' + key.replace(/\W/g,'_'));
+      const strip = document.getElementById(containerId);
       if (strip) {
         const wrap = document.createElement('div');
         wrap.className = 'thumb-wrap';
@@ -1281,11 +1354,19 @@ function onCamFile(inp) {
       }
       showToast('✓ תמונה הועלתה');
     } else if (type === 'issue') {
+      const containerId = 'iPhotos_' + key;
       const p = await uploadPhotoRecord('issue', pid, key, compressed, '');
-      if (!p) return;
+      if (!p) { renderFailedUploadThumb(containerId, compressed, async () => {
+        const p2 = await uploadPhotoRecord('issue', pid, key, compressed, '');
+        if (!p2) return false;
+        if (!state.issuePhotoLinks[key]) state.issuePhotoLinks[key] = [];
+        state.issuePhotoLinks[key].push(p2);
+        renderIssues();
+        return true;
+      }); return; }
       if (!state.issuePhotoLinks[key]) state.issuePhotoLinks[key] = [];
       state.issuePhotoLinks[key].push(p);
-      const strip = document.getElementById('iPhotos_' + key);
+      const strip = document.getElementById(containerId);
       if (strip) {
         const wrap = document.createElement('div');
         wrap.className = 'thumb-wrap';
@@ -1296,7 +1377,14 @@ function onCamFile(inp) {
     } else {
       // general
       const p = await uploadPhotoRecord('general', pid, null, compressed, '');
-      if (!p) return;
+      if (!p) { renderFailedUploadThumb('genPhotosArea', compressed, async () => {
+        const p2 = await uploadPhotoRecord('general', pid, null, compressed, '');
+        if (!p2) return false;
+        if (!state.generalPhotos) state.generalPhotos = [];
+        state.generalPhotos.push(p2);
+        addGeneralPhotoToStrip(p2.id, p2.url, '');
+        return true;
+      }); return; }
       if (!state.generalPhotos) state.generalPhotos = [];
       state.generalPhotos.push(p);
       addGeneralPhotoToStrip(p.id, p.url, '');
@@ -1351,7 +1439,7 @@ function addGeneralPhotoToStrip(id, src, desc) {
       '<div style="display:flex;gap:4px;align-items:flex-start">' +
         '<textarea class="gen-photo-desc" rows="2" placeholder="תיאור התמונה..." ' +
           'onchange="updateGeneralPhotoDesc(\'' + id + '\',this.value)" ' +
-          'oninput="updateGeneralPhotoDesc(\'' + id + '\',this.value)">' + (desc||'') + '</textarea>' +
+          'oninput="updateGeneralPhotoDesc(\'' + id + '\',this.value)">' + escapeHtml(desc) + '</textarea>' +
         (hasApi ? '<button onclick="improvePhotoDesc(\'' + id + '\')" title="שפר ניסוח" style="background:var(--blue);color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">✨ שפר</button>' : '') +
       '</div>' +
       '<button onclick="delGeneralPhoto(\'' + id + '\')" style="background:#fee;border:1px solid #fcc;color:#c00;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;align-self:flex-end">× מחק</button>' +
@@ -1433,9 +1521,10 @@ async function parseSmartText() {
         const m = raw.match(/\{[\s\S]*\}/);
         if (m) {
           const parsed = JSON.parse(m[0]);
-          (parsed.done||[]).forEach(s => { if (state.stages.hasOwnProperty(s)||true) state.stages[s]='done'; });
-          (parsed.prog||[]).forEach(s => { state.stages[s]='prog'; });
-          (parsed.notyet||[]).forEach(s => { state.stages[s]='notyet'; });
+          const validNames = cats().flatMap(c=>c.stages);
+          (parsed.done||[]).forEach(s => { if (validNames.includes(s)) state.stages[s]='done'; });
+          (parsed.prog||[]).forEach(s => { if (validNames.includes(s)) state.stages[s]='prog'; });
+          (parsed.notyet||[]).forEach(s => { if (validNames.includes(s)) state.stages[s]='notyet'; });
           buildStages(); updateCatLocks(); updatePlanLock(); updateProgressBar(); autoSave();
           showToast('✓ מולאו ' + ((parsed.done||[]).length+(parsed.prog||[]).length+(parsed.notyet||[]).length) + ' שלבים');
           return;
@@ -1795,7 +1884,7 @@ function resolveReportSource(projectName) {
   if (!projectName || projectName === state.project) return state;
   return projectDrafts[projectName] || {
     stages:{}, stageNotes:{}, issues:[], stagePhotoLinks:{}, issuePhotoLinks:{},
-    generalPhotos:[], planWeek1:[], nextVisitDate:'', generalNotes:'',
+    generalPhotos:[], planWeek1:[], planRange:'week', nextVisitDate:'', generalNotes:'',
     supervisorName:'', siteManager:'', visitDate:'', visitTime:''
   };
 }
@@ -1818,19 +1907,19 @@ async function generateCurrentVisitReport(projectName) {
     const stageRows = stageBlocks.map(b =>
       `<tr><td><b>${b.cat}</b><br><span style="font-size:9pt">${b.name}</span></td>` +
       `<td>${statusPill(b.status)}</td>` +
-      `<td style="font-size:9.5pt;color:#555">${(b.note||'').replace(/</g,'&lt;') || '—'}</td></tr>`
+      `<td style="font-size:9.5pt;color:#555">${escapeHtml(b.note) || '—'}</td></tr>`
     ).join('');
 
     const stagePicsHtml = stageBlocks.filter(b => b.pics.length).map(b =>
       `<div class="stage-block"><div class="stage-hdr">${statusPill(b.status)}<b>${b.name}</b></div>` +
       `<div class="photo-grid">${b.pics.map(p => `<figure><img src="${p.url}"></figure>`).join('')}</div>` +
-      (b.note ? `<div class="note">📝 ${b.note.replace(/</g,'&lt;')}</div>` : '') +
+      (b.note ? `<div class="note">📝 ${escapeHtml(b.note)}</div>` : '') +
       `</div>`
     ).join('');
 
     const generalPicsHtml = (s.generalPhotos||[]).filter(Boolean).length ?
       `<div class="photo-grid">${(s.generalPhotos||[]).filter(Boolean).map(gp =>
-        `<figure><img src="${gp.url}">${gp.desc ? `<figcaption>${gp.desc.replace(/</g,'&lt;')}</figcaption>` : ''}</figure>`
+        `<figure><img src="${gp.url}">${gp.desc ? `<figcaption>${escapeHtml(gp.desc)}</figcaption>` : ''}</figure>`
       ).join('')}</div>` : '';
 
     const issuesWithDesc = (s.issues || []).filter(i => i.desc);
@@ -1839,9 +1928,9 @@ async function generateCurrentVisitReport(projectName) {
       const pics = s.issuePhotoLinks?.[iss.id] || [];
       return `<div class="issue-cd ${sevClass[iss.severity]||''}">` +
         `<b>#${i+1} ${iss.severity ? '· ' + iss.severity : ''}</b>` +
-        `<p style="margin-top:4px">${iss.desc.replace(/</g,'&lt;')}</p>` +
+        `<p style="margin-top:4px">${escapeHtml(iss.desc)}</p>` +
         (pics.length ? `<div class="photo-grid" style="margin-top:6px">${pics.map(p=>`<figure><img src="${p.url}"></figure>`).join('')}</div>` : '') +
-        `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${iss.action.replace(/</g,'&lt;')}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
+        `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${escapeHtml(iss.action)}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
         `</div>`;
     }).join('') : '<p class="empty-note">אמ"ל – אין ממצאים או אירועים חריגים לדווח בביקור זה.</p>';
 
@@ -1913,7 +2002,7 @@ ${generalPicsHtml ? `<h2>📷 תמונות כלליות</h2>${generalPicsHtml}` 
 ${planItems ? `<h2>📋 תכנית עבודה ל${planRangeLbl}</h2><ul class="plan-list">${planItems}</ul>` : ''}
 ${s.nextVisitDate ? `<p style="margin-top:8px"><b>📅 ביקור הבא:</b> ${fmt(s.nextVisitDate)}</p>` : ''}
 
-${s.generalNotes && s.generalNotes.trim() ? `<h2>📝 הערות כלליות</h2><div class="notes-box">${s.generalNotes.replace(/\n/g,'<br>')}</div>` : ''}
+${s.generalNotes && s.generalNotes.trim() ? `<h2>📝 הערות כלליות</h2><div class="notes-box">${escapeHtml(s.generalNotes).replace(/\n/g,'<br>')}</div>` : ''}
 
 <div class="disclaimer">⚠️ ${REPORT_DISCLAIMER}</div>
 
@@ -2018,12 +2107,12 @@ function generateHistoricalReport() {
 
   const stageRows=Object.entries(lastV.stages||{}).filter(([,v])=>v&&v!=='na'&&v!=='').map(([s,sv])=>{
     const note=(lastV.stageNotes?.[s]||'');
-    return `<tr><td>${s}</td><td>${statusPill(sv)}</td><td style="font-size:10pt;color:#555">${note.replace(/</g,'&lt;')}</td></tr>`;
+    return `<tr><td>${s}</td><td>${statusPill(sv)}</td><td style="font-size:10pt;color:#555">${escapeHtml(note)}</td></tr>`;
   }).join('');
 
   const visitRows=visits.map(v=>{
     const pc=v.progressPct; const col=pc>=75?'#27ae60':pc>=40?'#e65100':'#1F4E79';
-    return `<tr><td><b>${fmt(v.visitDate)}</b>${v.visitTime?'<br><small>'+v.visitTime+'</small>':''}</td><td>${v.siteManager||'—'}</td><td style="font-weight:700;color:${col};text-align:center">${pc!=null?pc+'%':'—'}</td><td>${v.issues?.length||0}</td><td>${v.photoCount||0}</td></tr>`;
+    return `<tr><td><b>${fmt(v.visitDate)}</b>${v.visitTime?'<br><small>'+escapeHtml(v.visitTime)+'</small>':''}</td><td>${escapeHtml(v.siteManager)||'—'}</td><td style="font-weight:700;color:${col};text-align:center">${pc!=null?pc+'%':'—'}</td><td>${v.issues?.length||0}</td><td>${v.photoCount||0}</td></tr>`;
   }).join('');
 
   const sevClass = {'גבוהה':'sev-high','בינונית':'sev-med','נמוכה':'sev-low'};
@@ -2031,8 +2120,8 @@ function generateHistoricalReport() {
   const issuesHtml = issuesWithDesc.length ? issuesWithDesc.map((iss,i)=>
     `<div class="issue-cd ${sevClass[iss.severity]||''}">` +
     `<b>#${i+1} · ${fmt(iss.visitDate)}${iss.severity ? ' · ' + iss.severity : ''}</b>` +
-    `<p style="margin-top:4px">${(iss.desc||'').replace(/</g,'&lt;')}</p>` +
-    `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${iss.action.replace(/</g,'&lt;')}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
+    `<p style="margin-top:4px">${escapeHtml(iss.desc)}</p>` +
+    `<div class="row">${iss.action ? `<span><b>פעולה נדרשת:</b> ${escapeHtml(iss.action)}</span>` : ''}${iss.date ? `<span><b>יעד:</b> ${fmt(iss.date)}</span>` : ''}</div>` +
     `</div>`
   ).join('') : '<p class="empty-note">אמ"ל – אין ממצאים או אירועים חריגים לדווח בתקופה זו.</p>';
 
@@ -2155,13 +2244,17 @@ function importVisitJSON() {
   inp.click(); closeModal('shareModal');
 }
 
-function distributeApp() {
-  const src='<!DOCTYPE html>'+document.documentElement.outerHTML;
-  const blob=new Blob([src],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download='טופס_ביקור_שבועי.html'; a.click();
-  URL.revokeObjectURL(url); closeModal('shareModal');
-  showToast('📥 האפליקציה מורידה');
+function shareAppLink() {
+  const url = location.href.split('#')[0].split('?')[0];
+  const text = 'פיקוח בנייה – תמ"א 38: ' + url;
+  closeModal('shareModal');
+  if (navigator.share) {
+    navigator.share({ title: 'פיקוח בנייה – תמ"א 38', text, url }).catch(()=>{});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(()=>showToast('✓ הקישור הועתק'));
+  } else {
+    prompt('העתק את הקישור:', url);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2304,14 +2397,23 @@ async function doSignOut() {
 }
 
 async function boot() {
+  let appStarted = false;
+  sb.auth.onAuthStateChange((event, s) => {
+    if (s) {
+      if (appStarted) return; // ignore token-refresh events after the app is already running
+      appStarted = true;
+      document.getElementById('authGate').classList.add('hidden');
+      startApp(s);
+    } else if (appStarted) {
+      // Session was lost while the app was open (revoked, expired refresh token, etc.)
+      showToast('⚠️ החיבור פג — יש להתחבר מחדש');
+      setTimeout(() => location.reload(), 1500);
+    }
+  });
+
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    document.getElementById('authGate').classList.remove('hidden');
-    sb.auth.onAuthStateChange((event, s) => {
-      if (s) { document.getElementById('authGate').classList.add('hidden'); startApp(s); }
-    });
-    return;
-  }
+  if (!session) { document.getElementById('authGate').classList.remove('hidden'); return; }
+  appStarted = true;
   document.getElementById('authGate').classList.add('hidden');
   startApp(session);
 }
@@ -2458,6 +2560,7 @@ async function init() {
   }
 
   renderProjectPills();
+  syncSelectionButtons();
   buildStages();
   buildPlanSection();
   renderIssues();
