@@ -1884,7 +1884,7 @@ function reportShell(opts) {
   const { title, fileRef, updateDate, bodyHtml } = opts;
   return `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
-<title>${title}</title><style>${REPORT_CSS}</style></head><body>
+<title>${escapeHtml(title)}</title><style>${REPORT_CSS}</style></head><body>
 <button class="print-btn" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
 <div class="doc-wrap">
   <img class="doc-watermark" src="${WATERMARK_URL}" alt="">
@@ -1989,13 +1989,14 @@ async function generateCurrentVisitReport(projectName) {
 
     const progressNote = PROGRESS_LABELS[s.overallProgress] || '';
 
+    const projEsc = escapeHtml(proj);
     const body = `
-<h1 class="title">${proj}</h1>
+<h1 class="title">${projEsc}</h1>
 <div class="subtitle">דו"ח מפקח/ת הנדסי מטעם בעלי הדירות${date ? ' — מעודכן ' + date : ''}</div>
 
 <div class="letter-open">
-  <p>לבעלי הדירות בפרויקט ${proj}, שלום רב,</p>
-  <p class="subject">הנדון: ${proj} — דו"ח ביקור פיקוח, מעודכן ${date}</p>
+  <p>לבעלי הדירות בפרויקט ${projEsc}, שלום רב,</p>
+  <p class="subject">הנדון: ${projEsc} — דו"ח ביקור פיקוח, מעודכן ${date}</p>
 </div>
 
 <div class="cards">
