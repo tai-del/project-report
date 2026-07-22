@@ -74,6 +74,8 @@ textarea{resize:vertical;min-height:70px}
 .stage-photos{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center}
 .thumb-wrap{position:relative;display:inline-block}
 .thumb-wrap img{width:60px;height:60px;object-fit:cover;border-radius:6px;border:1.5px solid #cdd}
+.main-img-wrap{position:relative;display:inline-block;margin-bottom:8px}
+.main-img-wrap img{width:180px;height:110px;object-fit:cover;border-radius:8px;border:1.5px solid #cdd;display:block}
 .thumb-del{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;border:none;border-radius:50%;width:17px;height:17px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
 .upload-dot{position:absolute;bottom:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#f39c12}
 .upload-dot.ok{background:var(--green)}
@@ -218,6 +220,9 @@ textarea{resize:vertical;min-height:70px}
     <button class="gen-btn" onclick="learnFromProject()" style="margin:4px 0 8px">⚡ למד מהפרויקט והוסף שלבים</button>
     <div class="learn-status" id="learnStatus"></div>
     <div class="divider"></div>
+    <label class="field-lbl">🖼️ תמונה ראשית לפרויקט (מופיעה בעמוד הראשון של הדוח)</label>
+    <div id="mainImageArea"></div>
+    <div class="divider"></div>
     <label class="field-lbl">🗓️ לוח זמנים מתוכנן (מופיע בדוח)</label>
     <div id="milestonesTable"></div>
   </div>
@@ -361,6 +366,7 @@ textarea{resize:vertical;min-height:70px}
 <!-- CAMERA INPUTS -->
 <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="onCamFile(this)">
 <input type="file" id="galInput" accept="image/*" style="display:none" onchange="onCamFile(this)">
+<input type="file" id="mainImageInput" accept="image/*" style="display:none" onchange="onMainImageFile(this)">
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -516,7 +522,7 @@ let state = {
   generalPhotos:[] // [{id,url,desc}]
 };
 
-let settings = { projects:[], stageCategories:DEFAULT_CATS, apiKey:'', projectCustomStages:{}, projectDescriptions:{} };
+let settings = { projects:[], stageCategories:DEFAULT_CATS, apiKey:'', projectCustomStages:{}, projectDescriptions:{}, projectMainImage:{} };
 let visitHistory = [];
 let projectDrafts = {};
 let projectLastStates = {};
@@ -587,13 +593,14 @@ async function pullSettings() {
 async function pullProjects() {
   const { data } = await sb.from('projects').select('*').order('created_at');
   settings.projects = []; projectIdByName = {};
-  settings.projectCustomStages = {}; settings.projectDescriptions = {}; settings.projectMilestones = {};
+  settings.projectCustomStages = {}; settings.projectDescriptions = {}; settings.projectMilestones = {}; settings.projectMainImage = {};
   (data || []).forEach(p => {
     settings.projects.push(p.name);
     projectIdByName[p.name] = p.id;
     settings.projectCustomStages[p.name] = p.custom_stages || [];
     settings.projectDescriptions[p.name] = p.description || '';
     settings.projectMilestones[p.name] = p.milestones || [];
+    settings.projectMainImage[p.name] = p.main_image_path || '';
   });
 }
 
@@ -832,6 +839,7 @@ function selectProject(name) {
   const briefEl = document.getElementById('projectBriefText');
   if (briefEl) briefEl.value = (settings.projectDescriptions || {})[name] || '';
   renderMilestonesTable();
+  renderMainImagePreview();
   // Always stamp fresh date/time
   const now = new Date();
   state.visitDate = now.toISOString().slice(0,10);
@@ -889,6 +897,7 @@ async function addProject() {
   projectIdByName[name] = data.id;
   settings.projectCustomStages[name] = [];
   settings.projectDescriptions[name] = '';
+  settings.projectMainImage[name] = '';
   cacheLocally();
   inp.value = '';
   renderProjectsModal();
@@ -1585,6 +1594,65 @@ async function updateMilestone(ci, field, value) {
   setSyncStatus(error ? 'error' : 'ok');
 }
 
+// Project cover image — shown on page 1 of the report, below the title/headline.
+// Stored at a fixed per-project storage path (upsert on re-upload) so we don't
+// accumulate orphaned files each time the supervisor swaps the image.
+function renderMainImagePreview() {
+  const el = document.getElementById('mainImageArea');
+  if (!el) return;
+  if (!state.project) { el.innerHTML = ''; return; }
+  const path = (settings.projectMainImage || {})[state.project];
+  if (path) {
+    const url = photoPublicUrl(path);
+    el.innerHTML = `<div class="main-img-wrap"><img src="${url}"><button class="thumb-del" title="הסר תמונה" onclick="removeMainImage()">×</button></div>
+      <button class="cam-btn" onclick="triggerMainImageUpload()">🖼️ החלף תמונה</button>`;
+  } else {
+    el.innerHTML = `<button class="cam-btn" onclick="triggerMainImageUpload()">🖼️ בחר/העלה תמונה ראשית</button>`;
+  }
+}
+
+function triggerMainImageUpload() {
+  if (!state.project) { showToast('⚠️ בחר פרויקט תחילה'); return; }
+  const inp = document.getElementById('mainImageInput');
+  inp.value = '';
+  inp.click();
+}
+
+function onMainImageFile(inp) {
+  if (!inp.files.length) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const pid = projectIdByName[state.project];
+    if (!pid) { showToast('⚠️ בחר פרויקט תחילה'); return; }
+    const compressed = await compressImg(e.target.result, 1600, 0.82);
+    showToast('⏳ מעלה תמונה...');
+    const path = pid + '/main/cover.jpg';
+    const blob = await (await fetch(compressed)).blob();
+    const { error: upErr } = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+    if (upErr) { console.error(upErr); showToast('⚠️ העלאה נכשלה'); return; }
+    const { error } = await sb.from('projects').update({ main_image_path: path }).eq('id', pid);
+    if (error) { console.error(error); showToast('⚠️ שגיאה בשמירת התמונה'); return; }
+    settings.projectMainImage[state.project] = path;
+    cacheLocally();
+    renderMainImagePreview();
+    showToast('✓ תמונה ראשית נשמרה');
+  };
+  reader.readAsDataURL(inp.files[0]);
+}
+
+async function removeMainImage() {
+  const pid = projectIdByName[state.project];
+  const path = (settings.projectMainImage || {})[state.project];
+  if (!pid || !path) return;
+  try { await sb.storage.from('photos').remove([path]); } catch (e) {}
+  const { error } = await sb.from('projects').update({ main_image_path: null }).eq('id', pid);
+  if (error) { console.error(error); showToast('⚠️ שגיאה בהסרת התמונה'); return; }
+  settings.projectMainImage[state.project] = '';
+  cacheLocally();
+  renderMainImagePreview();
+  showToast('✓ התמונה הוסרה');
+}
+
 async function learnFromProject() {
   const text = (document.getElementById('projectBriefText') || {}).value;
   if (!text || !text.trim()) { showToast('⚠ כתוב תיאור פרויקט תחילה'); return; }
@@ -1814,6 +1882,7 @@ tr:nth-child(even) td{background:#F7FAFD}
 .pill-prog{background:#FFF3E0;color:#e65100}
 .pill-notyet{background:#E3F2FD;color:#1565c0}
 .pill-na{background:#F0F0F0;color:#777}
+.cover-img{display:block;max-width:100%;max-height:280px;margin:0 auto 16px;border-radius:8px;object-fit:cover}
 .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}
 .photo-grid figure{margin:0;break-inside:avoid;page-break-inside:avoid}
 .photo-grid img{width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid #ccc;display:block}
@@ -1992,10 +2061,12 @@ async function generateCurrentVisitReport(projectName) {
     const progressNote = PROGRESS_LABELS[s.overallProgress] || '';
 
     const projEsc = escapeHtml(proj);
+    const mainImagePath = (settings.projectMainImage || {})[proj];
+    const coverImgHtml = mainImagePath ? `<img class="cover-img" src="${photoPublicUrl(mainImagePath)}" alt="">` : '';
     const body = `
 <h1 class="title">${projEsc}</h1>
-<div class="subtitle">דו"ח מפקח/ת הנדסי מטעם בעלי הדירות${date ? ' — מעודכן ' + date : ''}</div>
-
+<div class="subtitle">דו"ח מצב לבעלי הדירות${date ? ' — מעודכן ' + date : ''}</div>
+${coverImgHtml}
 <div class="letter-open">
   <p>לבעלי הדירות בפרויקט ${projEsc}, שלום רב,</p>
   <p class="subject">הנדון: ${projEsc} — דו"ח ביקור פיקוח, מעודכן ${date}</p>
@@ -2187,10 +2258,12 @@ function generateHistoricalReport() {
     return `<div class="stage-block"><div class="stage-hdr"><b>${s}</b></div><div class="photo-grid">${thumbs}</div></div>`;
   }).join('');
 
+  const mainImagePath = proj ? (settings.projectMainImage || {})[proj] : '';
+  const coverImgHtml = mainImagePath ? `<img class="cover-img" src="${photoPublicUrl(mainImagePath)}" alt="">` : '';
   const body = `
 <h1 class="title">${escapeHtml(projLabel)}</h1>
 <div class="subtitle">דוח פיקוח היסטורי — ${fmt(visits[0].visitDate)} עד ${fmt(visits[visits.length-1].visitDate)}</div>
-
+${coverImgHtml}
 <div class="cards">
   <div class="card"><div class="n">${visits.length}</div><div class="l">ביקורים</div></div>
   <div class="card"><div class="n">${allIssues.length}</div><div class="l">ממצאים</div></div>
@@ -2622,6 +2695,7 @@ async function init() {
       const briefEl = document.getElementById('projectBriefText');
       if (briefEl) briefEl.value = (settings.projectDescriptions || {})[proj] || '';
       renderMilestonesTable();
+      renderMainImagePreview();
     }
   }
 

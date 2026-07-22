@@ -39,6 +39,7 @@ create table if not exists public.projects (
   description text default '',
   custom_stages jsonb not null default '[]'::jsonb, -- [{cat:0-7, name:'...'}]
   milestones jsonb not null default '[]'::jsonb, -- [{cat:0-7, planned:'YYYY-MM-DD', actual:'YYYY-MM-DD'}]
+  main_image_path text, -- storage path in the 'photos' bucket, shown on report page 1
   created_by uuid references public.profiles(id),
   created_at timestamptz not null default now()
 );
@@ -200,3 +201,4 @@ create policy "team delete photos" on storage.objects
 alter table public.projects add column if not exists milestones jsonb not null default '[]'::jsonb;
 alter table public.drafts add column if not exists plan_range text not null default 'week';
 alter table public.visits add column if not exists plan_range text not null default 'week';
+alter table public.projects add column if not exists main_image_path text;
